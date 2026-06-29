@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JOOHN — Portfólio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Archivo+Expanded:wght@600;700;800&family=Courier+Prime:wght@400;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2EEE4;
+    --paper-2:#E7E0CF;
+    --panel:#EDE7D8;
+    --ink:#22221E;
+    --ink-soft:#54534A;
+    --blue:#1B4F8C;
+    --blue-bright:#2E6DB4;
+    --rec:#C0392B;
+    --line:#C9BFA8;
+    --line-dark:#B0A78F;
+    --gold:#B98A2E;
+    --green:#3E6B5E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Public Sans",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  /* subtle paper grain */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.5;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  }
+  .mono{font-family:"Courier Prime",monospace}
+
+  /* ===== top utility bar (corporate intranet) ===== */
+  .topbar{
+    position:relative;z-index:5;
+    display:flex;justify-content:space-between;align-items:center;
+    gap:16px;padding:9px 26px;
+    background:var(--blue);color:#EAF1F8;
+    font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.04em;
+  }
+  .topbar .left{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .topbar .dot{width:7px;height:7px;border-radius:50%;background:#7FB2E6;display:inline-block}
+  .topbar .right{opacity:.85;white-space:nowrap}
+  @media(max-width:680px){
+    .topbar{padding:8px 16px}
+    .topbar .left span:nth-child(2),
+    .topbar .left span:nth-child(3){display:none}
+  }
+
+  /* ===== nav ===== */
+  nav{
+    position:relative;z-index:5;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:18px 26px;border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{
+    width:34px;height:34px;border-radius:4px;background:var(--blue);
+    color:#fff;display:grid;place-items:center;
+    font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:17px;
+    box-shadow:2px 2px 0 var(--line-dark, #b0a78f);
+  }
+  .brand .wordmark{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:18px;letter-spacing:.02em}
+  .brand .wordmark small{display:block;font-family:"Courier Prime",monospace;font-weight:400;font-size:10px;letter-spacing:.14em;color:var(--ink-soft);margin-top:1px}
+  .navlinks{display:flex;gap:26px;font-size:13px;font-weight:600}
+  .navlinks a{color:var(--ink);text-decoration:none;position:relative;padding-bottom:2px}
+  .navlinks a::after{content:"";position:absolute;left:0;bottom:-2px;width:0;height:2px;background:var(--rec);transition:width .25s ease}
+  .navlinks a:hover::after{width:100%}
+  @media(max-width:680px){.navlinks{display:none}}
+
+  /* ===== HERO = viewfinder ===== */
+  .hero{
+    position:relative;z-index:2;
+    min-height:78vh;padding:64px 26px 120px;
+    display:flex;flex-direction:column;justify-content:center;
+    max-width:1180px;margin:0 auto;
+  }
+  /* viewfinder corner brackets */
+  .frame{position:absolute;width:30px;height:30px;border:2px solid var(--ink);opacity:.7}
+  .frame.tl{top:30px;left:26px;border-right:0;border-bottom:0}
+  .frame.tr{top:30px;right:26px;border-left:0;border-bottom:0}
+  .frame.bl{bottom:34px;left:26px;border-right:0;border-top:0}
+  .frame.br{bottom:34px;right:26px;border-left:0;border-top:0}
+
+  .rec{
+    position:absolute;top:30px;right:64px;
+    display:flex;align-items:center;gap:9px;
+    font-family:"Courier Prime",monospace;font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--ink);
+  }
+  .rec .bulb{width:11px;height:11px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 0 rgba(192,57,43,.5);animation:rec 1.4s infinite}
+  @keyframes rec{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}
+
+  .eyebrow{
+    font-family:"Courier Prime",monospace;font-size:13px;letter-spacing:.18em;
+    color:var(--blue);font-weight:700;text-transform:uppercase;margin-bottom:22px;
+  }
+  .hero h1{
+    font-family:"Archivo Expanded","Archivo",sans-serif;
+    font-weight:800;line-height:1.02;letter-spacing:-.01em;
+    font-size:clamp(2.6rem,7.2vw,6rem);max-width:14ch;
+  }
+  .hero h1 .hl{color:var(--blue);position:relative;white-space:nowrap}
+  .hero p.whatshesaid{
+    margin-top:12px;font-family:"Courier Prime",monospace;font-style:italic;
+    font-size:clamp(.95rem,2vw,1.2rem);color:var(--rec);font-weight:700;letter-spacing:.02em;
+  }
+  .hero p.whatshesaid::before{content:"— ";opacity:.7}
+  .hero p.lead{
+    margin-top:26px;max-width:46ch;font-size:clamp(1rem,2.1vw,1.22rem);
+    color:var(--ink-soft);font-weight:500;
+  }
+  .cta-row{margin-top:34px;display:flex;gap:14px;flex-wrap:wrap}
+  .btn{
+    font-family:"Archivo",sans-serif;font-weight:700;font-size:14px;letter-spacing:.02em;
+    padding:13px 22px;border-radius:4px;text-decoration:none;cursor:pointer;border:2px solid var(--blue);
+    transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+  }
+  .btn.primary{background:var(--blue);color:#fff;box-shadow:3px 3px 0 var(--ink)}
+  .btn.primary:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--ink)}
+  .btn.ghost{background:transparent;color:var(--blue)}
+  .btn.ghost:hover{background:var(--blue);color:#fff}
+
+  /* lower third */
+  .lower-third{
+    position:absolute;left:26px;bottom:60px;display:flex;align-items:stretch;
+    box-shadow:4px 4px 0 rgba(34,34,30,.16);
+  }
+  .lower-third .tab{background:var(--rec);width:8px}
+  .lower-third .body{
+    background:rgba(27,79,140,.95);color:#fff;padding:11px 20px 12px;backdrop-filter:blur(2px);
+  }
+  .lower-third .name{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.1rem,2.6vw,1.5rem);letter-spacing:.02em}
+  .lower-third .role{font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.06em;opacity:.92;margin-top:2px}
+  @media(max-width:680px){.lower-third{position:static;margin-top:48px;align-self:flex-start}.rec{right:50px}}
+
+  /* ===== MEMO / serviços ===== */
+  .memo-wrap{position:relative;z-index:2;background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .memo{max-width:1180px;margin:0 auto;padding:54px 26px 60px}
+  .memo .head{font-family:"Courier Prime",monospace;font-size:13px;color:var(--ink-soft);border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:30px;display:grid;gap:5px}
+  .memo .head b{color:var(--ink)}
+  .memo h2{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.5rem,3.6vw,2.3rem);margin-bottom:4px}
+  .memo .sub{color:var(--ink-soft);max-width:52ch;margin-bottom:36px}
+  .svc{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);background:var(--paper)}
+  @media(max-width:860px){.svc{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:480px){.svc{grid-template-columns:1fr}}
+  .svc .cell{padding:24px 22px 26px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);transition:background .2s ease}
+  .svc .cell:hover{background:var(--paper-2)}
+  .svc .num{font-family:"Courier Prime",monospace;font-size:12px;color:var(--rec);font-weight:700;letter-spacing:.1em}
+  .svc h3{font-family:"Archivo",sans-serif;font-weight:800;font-size:1.18rem;margin:12px 0 8px}
+  .svc p{font-size:.92rem;color:var(--ink-soft)}
+
+  /* ===== WORK / episódios ===== */
+  .work{max-width:1180px;margin:0 auto;padding:66px 26px 40px;position:relative;z-index:2}
+  .work .bar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:30px}
+  .work h2{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.5rem,3.6vw,2.3rem)}
+  .work .tag{font-family:"Courier Prime",monospace;font-size:12px;color:var(--ink-soft);letter-spacing:.06em}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+  .card{
+    border:1px solid var(--line);background:var(--panel);border-radius:5px;overflow:hidden;
+    transition:transform .2s ease,box-shadow .2s ease;cursor:pointer;
+  }
+  .card:hover{transform:translateY(-4px);box-shadow:6px 8px 0 rgba(34,34,30,.12)}
+  a.card{text-decoration:none;color:inherit;display:block}
+  .thumb{aspect-ratio:16/10;position:relative;display:grid;place-items:center;overflow:hidden;background:var(--paper-2)}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s ease}
+  .card:hover .thumb img{transform:scale(1.04)}
+  .thumb .tc{position:absolute;top:9px;left:10px;font-family:"Courier Prime",monospace;font-size:11px;color:#fff;background:rgba(0,0,0,.45);padding:2px 7px;border-radius:3px;letter-spacing:.05em}
+  .thumb .play{width:46px;height:46px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;color:#fff;opacity:.92}
+  .thumb .play::after{content:"";border-left:13px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent;margin-left:4px}
+  .t1{background:linear-gradient(135deg,#1B4F8C,#2E6DB4)}
+  .t2{background:linear-gradient(135deg,#3E6B5E,#5d8c7d)}
+  .t3{background:linear-gradient(135deg,#8a5a2b,#b98a2e)}
+  .t4{background:linear-gradient(135deg,#5a2f5e,#8a4f8e)}
+  .t5{background:linear-gradient(135deg,#7a2d28,#C0392B)}
+  .t6{background:linear-gradient(135deg,#2b3a4a,#46617a)}
+  .subhead{display:flex;align-items:center;gap:14px;margin:8px 0 22px}
+  .subhead .num{width:30px;height:30px;flex:0 0 auto;border-radius:4px;background:var(--blue);color:#fff;display:grid;place-items:center;font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:14px;box-shadow:2px 2px 0 var(--line-dark)}
+  .subhead h3{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.15rem,2.6vw,1.5rem)}
+  .subhead .seeall{margin-left:auto;font-family:"Courier Prime",monospace;font-size:12px;font-weight:700;letter-spacing:.05em;color:var(--blue);text-decoration:none;white-space:nowrap}
+  .subhead .seeall:hover{text-decoration:underline}
+  .card .meta{padding:16px 18px 18px}
+  .card .ep{font-family:"Courier Prime",monospace;font-size:11px;color:var(--rec);font-weight:700;letter-spacing:.08em}
+  .card h4{font-family:"Archivo",sans-serif;font-weight:700;font-size:1.05rem;margin:7px 0 4px}
+  .card .meta p{font-size:.86rem;color:var(--ink-soft)}
+
+  /* ===== confession / about strip ===== */
+  .confession{position:relative;z-index:2;background:var(--blue);color:#EAF1F8;margin-top:56px;border-top:6px solid var(--rec)}
+  .confession .inner{max-width:900px;margin:0 auto;padding:70px 26px}
+  .confession .q{font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.16em;color:#9DC3EC;margin-bottom:18px}
+  .confession blockquote{font-family:"Archivo",sans-serif;font-weight:600;font-size:clamp(1.3rem,3.2vw,2rem);line-height:1.28;letter-spacing:-.005em}
+  .confession .attrib{margin-top:28px;display:flex;flex-direction:column;gap:7px;font-family:"Courier Prime",monospace;font-size:14px;letter-spacing:.03em}
+  .confession .attrib span{color:#BCD6F0}
+  .confession .attrib span:nth-child(2){margin-left:30px;opacity:.92}
+  .confession .attrib span:nth-child(3){margin-left:60px;color:#fff;font-weight:700}
+
+  /* ===== footer ===== */
+  footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:46px 26px}
+  .foot{max-width:1180px;margin:0 auto;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+  .foot .big{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.4rem,4vw,2.1rem)}
+  .foot a{color:var(--blue);text-decoration:none;font-weight:600}
+  .foot .links{display:flex;gap:20px;font-family:"Courier Prime",monospace;font-size:13px;letter-spacing:.04em}
+  .foot .copy{width:100%;border-top:1px solid var(--line);margin-top:30px;padding-top:18px;font-family:"Courier Prime",monospace;font-size:11px;color:var(--ink-soft);letter-spacing:.04em;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  /* video card play badge */
+  .thumb .vbadge{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+  .thumb .vbadge .tri{width:54px;height:54px;border-radius:50%;background:rgba(27,79,140,.92);box-shadow:0 4px 14px rgba(0,0,0,.35);
+    display:grid;place-items:center}
+  .thumb .vbadge .tri::after{content:"";border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:5px}
+  /* empty placeholder card */
+  .card.placeholder{cursor:default}
+  .card.placeholder:hover{transform:none;box-shadow:none}
+  .card.placeholder .thumb{background:repeating-linear-gradient(45deg,var(--paper-2),var(--paper-2) 10px,var(--panel) 10px,var(--panel) 20px)}
+  .card.placeholder .hint{font-family:"Courier Prime",monospace;font-size:12px;color:var(--ink-soft);text-align:center;padding:0 14px;line-height:1.4}
+
+  /* ===== LIGHTBOX ===== */
+  .lb-overlay{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;flex-direction:column;
+    background:rgba(20,20,17,.92);padding:40px 20px;backdrop-filter:blur(3px)}
+  .lb-overlay.open{display:flex}
+  .lb-stage{max-width:min(1100px,92vw);max-height:80vh;display:flex;align-items:center;justify-content:center}
+  .lb-stage img,.lb-stage video{max-width:100%;max-height:80vh;border-radius:6px;box-shadow:0 18px 50px rgba(0,0,0,.5);background:#000}
+  .lb-cap{margin-top:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;
+    font-family:"Courier Prime",monospace;font-size:13px;color:#EAF1F8;letter-spacing:.04em}
+  .lb-cap a{color:#9DC3EC;font-weight:700;text-decoration:none;border:1px solid #4f7bb0;padding:6px 12px;border-radius:4px}
+  .lb-cap a:hover{background:#1B4F8C;color:#fff}
+  .lb-close{position:fixed;top:18px;right:24px;width:42px;height:42px;border-radius:50%;border:2px solid #EAF1F8;background:transparent;
+    color:#EAF1F8;font-size:24px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:background .15s ease}
+  .lb-close:hover{background:#C0392B;border-color:#C0392B}
+
+  /* ===== SOBRE MIM (banner) ===== */
+  .about{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:56px 26px}
+  .about-banner{position:relative;margin:0 0 30px;border:1px solid var(--line);background:var(--paper-2);border-radius:6px;overflow:hidden;box-shadow:6px 8px 0 rgba(34,34,30,.12)}
+  .about-banner img{width:100%;aspect-ratio:2000/560;object-fit:cover;object-position:center 30%;display:block}
+  .about-banner.noimg{min-height:200px;display:grid;place-items:center}
+  .about-banner.noimg::before{content:"adicione  media/sobre.jpg";font-family:"Courier Prime",monospace;font-size:13px;color:var(--ink-soft);letter-spacing:.04em}
+  .about-banner figcaption{position:absolute;left:0;bottom:0;background:rgba(27,79,140,.95);color:#fff;font-size:11px;letter-spacing:.08em;padding:6px 12px}
+  .about-text{max-width:780px}
+  .about-text .eyebrow{margin-bottom:14px}
+  .about-text h2{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.7rem,4vw,2.6rem);margin-bottom:18px}
+  .about-text p{color:var(--ink-soft);font-size:clamp(1rem,1.6vw,1.12rem);max-width:64ch;margin-bottom:14px}
+
+  /* ===== GRADE DE VÍDEOS (por categoria) ===== */
+  .vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .vgrid .empty-note{grid-column:1/-1;padding:22px;border:1px dashed var(--line-dark);border-radius:6px;
+    font-family:"Courier Prime",monospace;font-size:13px;color:var(--ink-soft);text-align:center}
+  @media(max-width:600px){
+    .vgrid{gap:6px}
+    .vgrid .vcard .meta{display:none}
+    .vgrid .vcard .thumb{aspect-ratio:1/1}
+    .vgrid .vcard{border-radius:3px}
+    .vgrid .vcard .vbadge .tri{width:34px;height:34px}
+    .vgrid .vcard .vbadge .tri::after{border-left-width:11px;border-top-width:7px;border-bottom-width:7px;margin-left:3px}
+  }
+
+  /* ===== CARROSSEL DE FOTOS POR CLIENTE ===== */
+  .cli{margin-bottom:30px}
+  .cli-head{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+  .cli-head .cdot{width:9px;height:9px;border-radius:50%;background:var(--rec);flex:0 0 auto}
+  .cli-head h4{font-family:"Archivo",sans-serif;font-weight:800;font-size:1.12rem;letter-spacing:.01em}
+  .cli-head .ccount{font-family:"Courier Prime",monospace;font-size:11px;color:var(--ink-soft);letter-spacing:.06em}
+  .carousel-wrap{position:relative}
+  .carousel{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+    padding:4px 2px 14px;cursor:grab;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  .carousel.dragging{cursor:grabbing;scroll-behavior:auto}
+  .carousel::-webkit-scrollbar{height:8px}
+  .carousel::-webkit-scrollbar-thumb{background:var(--line-dark);border-radius:4px}
+  .carousel::-webkit-scrollbar-track{background:var(--panel)}
+  .carousel .slide{flex:0 0 auto;scroll-snap-align:start;border:1px solid var(--line);border-radius:5px;overflow:hidden;
+    background:var(--panel);display:block;transition:transform .2s ease,box-shadow .2s ease}
+  .carousel .slide:hover{transform:translateY(-3px);box-shadow:5px 6px 0 rgba(34,34,30,.12)}
+  .carousel .slide img{height:360px;width:auto;max-width:none;display:block;pointer-events:none;user-select:none}
+  @media(max-width:560px){.carousel .slide img{height:260px}}
+  .cbtn{position:absolute;top:calc(50% - 8px);transform:translateY(-50%);z-index:3;width:40px;height:40px;border-radius:50%;
+    border:2px solid var(--blue);background:var(--paper);color:var(--blue);font-size:22px;line-height:1;cursor:pointer;
+    display:grid;place-items:center;box-shadow:2px 2px 0 var(--line-dark);transition:background .15s ease,color .15s ease}
+  .cbtn:hover{background:var(--blue);color:#fff}
+  .cbtn.prev{left:-6px}.cbtn.next{right:-6px}
+  @media(max-width:560px){.cbtn{display:none}}
+
+  /* ===== MODO ESCURO ===== */
+  body{transition:background-color .3s ease,color .3s ease}
+  html[data-theme="dark"]{
+    --paper:#161510; --paper-2:#201E16; --panel:#1E1C15;
+    --ink:#ECE7D8; --ink-soft:#A7A290;
+    --blue:#5E93D6; --blue-bright:#82B2EE; --rec:#E15A4C;
+    --line:#39362B; --line-dark:#4B4737; --gold:#CB9D41; --green:#5F9485;
+  }
+  html[data-theme="dark"] body::before{opacity:.7}
+  .theme-toggle{width:38px;height:38px;flex:0 0 auto;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center;
+    transition:background .15s ease,border-color .15s ease,transform .15s ease}
+  .theme-toggle:hover{border-color:var(--blue);transform:translateY(-1px)}
+
+  /* ===== FEED DO INSTAGRAM ===== */
+  .igfeed{position:relative;z-index:2;background:var(--panel);border-top:1px solid var(--line)}
+  .igfeed-inner{max-width:1180px;margin:0 auto;padding:60px 26px}
+  .ig-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+  .ig-head h2{font-family:"Archivo Expanded","Archivo",sans-serif;font-weight:800;font-size:clamp(1.5rem,3.6vw,2.3rem)}
+  .ig-embed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;justify-items:center;align-items:start}
+  @media(max-width:760px){.ig-embed{grid-template-columns:1fr}}
+  .ig-col{margin:0;width:100%;max-width:430px;display:flex;flex-direction:column;gap:10px}
+  .ig-col figcaption{font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.05em;text-align:center}
+  .ig-col figcaption a{color:var(--blue);text-decoration:none;font-weight:700}
+  .ig-col figcaption a:hover{text-decoration:underline}
+  .ig-col iframe{width:100%;height:720px;border:1px solid var(--line);border-radius:8px;
+    background:var(--paper);box-shadow:6px 8px 0 rgba(34,34,30,.12)}
+  @media(max-width:560px){.ig-col iframe{height:640px}}
+
+  /* ===== PLAYER SPOTIFY (flutuante) ===== */
+  .spotify-dock{position:fixed;right:18px;bottom:18px;z-index:50;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+  .spotify-fab{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;border:2px solid var(--ink);
+    background:#1DB954;color:#06210f;font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;letter-spacing:.02em;cursor:pointer;
+    box-shadow:3px 3px 0 var(--ink);transition:transform .15s ease,box-shadow .15s ease}
+  .spotify-fab:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--ink)}
+  .spotify-fab .sp-ico{font-size:15px;line-height:1}
+  .spotify-panel{width:320px;max-width:calc(100vw - 36px);background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:6px 8px 0 rgba(34,34,30,.18)}
+  .spotify-panel[hidden]{display:none}
+  .sp-head{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;
+    font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-soft);border-bottom:1px solid var(--line)}
+  .sp-close{background:none;border:0;font-size:18px;line-height:1;cursor:pointer;color:var(--ink-soft)}
+  .sp-close:hover{color:var(--rec)}
+  .spotify-panel iframe{display:block;border:0;width:100%}
+  @media(max-width:560px){.spotify-fab .sp-label{display:none}.spotify-fab{padding:11px}}
+
+  /* ===== versículo diário ===== */
+  .foot .verse{width:100%;border-top:1px dashed var(--line);margin-top:24px;padding-top:16px;
+    font-family:"Courier Prime",monospace;font-size:12.5px;color:var(--ink-soft);letter-spacing:.02em;
+    display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;line-height:1.5}
+  .foot .verse .vr{color:var(--blue);font-weight:700;white-space:nowrap}
+
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important}
+    .reveal{opacity:1;transform:none;transition:none}
+    html{scroll-behavior:auto}
+  }
+</style>
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="left">
+      <span><span class="dot"></span> DISPONÍVEL PARA PROJETOS</span>
+      <span>BASE: FRANCA / SP</span>
+      <span class="mono">EDIÇÃO · CAPTAÇÃO · DESIGN · MOTION</span>
+    </div>
+    <div class="right mono">PORTFÓLIO 2026</div>
+  </div>
+
+  <nav>
+    <div class="brand">
+      <div class="mark">J</div>
+      <div class="wordmark">JOOHN<small>AUDIOVISUAL &amp; DESIGN</small></div>
+    </div>
+    <div class="navlinks">
+      <a href="#servicos">Serviços</a>
+      <a href="#trabalhos">Trabalhos</a>
+      <a href="#sobre">Sobre</a>
+      <a href="#contato">Contato</a>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar modo escuro" title="Modo escuro">🌙</button>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="frame tl"></span><span class="frame tr"></span>
+    <span class="frame bl"></span><span class="frame br"></span>
+    <div class="rec"><span class="bulb"></span>REC <span id="tc">00:00:00:00</span></div>
+
+    <div class="reveal in">
+      <div class="eyebrow">Cena 01 // Abertura</div>
+      <h1>Eu tenho tudo que <span class="hl">você precisa</span>.</h1>
+      <p class="whatshesaid">“that's what she said”</p>
+      <p class="lead">Edição, captação, design gráfico e motion. Você traz a ideia e eu cuido da produção do começo ao fim.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="#trabalhos">Ver os trabalhos</a>
+        <a class="btn ghost" href="#contato">Falar comigo</a>
+      </div>
+    </div>
+
+    <div class="lower-third reveal in">
+      <div class="tab"></div>
+      <div class="body">
+        <div class="name">JOOHN</div>
+        <div class="role">Designer, editor e a pessoa que segura a câmera</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SOBRE MIM -->
+  <section class="about" id="sobre">
+    <figure class="about-banner reveal">
+      <img src="https://drive.google.com/thumbnail?id=1mNxbL9-wRwLWtFP59NfWSzY-wzdL15cY&sz=w2000" alt="João Victor nos bastidores, atrás da câmera" loading="lazy" referrerpolicy="no-referrer"
+           onerror="this.parentNode.classList.add('noimg');this.remove();">
+      <figcaption class="mono">BASTIDORES · CAPTAÇÃO</figcaption>
+    </figure>
+    <div class="about-text reveal">
+      <div class="eyebrow">Cena 00 // Quem assina</div>
+      <h2>Sobre mim</h2>
+      <p>Graduado em Design Gráfico pela Universidade de Franca (UNIFRAN), atuo como Designer Gráfico, Web Designer e Motion Designer.</p>
+      <p>Crio logotipos, materiais impressos (cardápios, banners, outdoors e cartões de visita), artes promocionais e institucionais, flyers de eventos, lyric videos e peças animadas.</p>
+    </div>
+  </section>
+
+  <!-- MEMO / SERVIÇOS -->
+  <section class="memo-wrap" id="servicos">
+    <div class="memo">
+      <div class="head reveal">
+        <span>PARA:&nbsp;&nbsp;<b>Quem precisa resolver audiovisual sem montar três equipes</b></span>
+        <span>DE:&nbsp;&nbsp;&nbsp;&nbsp;<b>Joohn</b></span>
+        <span>ASSUNTO:&nbsp;<b>O que entra em cada projeto</b></span>
+      </div>
+      <h2 class="reveal">Quatro funções, uma pessoa só</h2>
+      <p class="sub reveal">Tudo conversando entre si: o que é captado já é pensado para a edição, e o que é editado já nasce alinhado com o design.</p>
+      <div class="svc">
+        <div class="cell reveal"><div class="num">01</div><h3>Edição</h3><p>Corte, ritmo e finalização. Da entrevista crua ao corte final que prende.</p></div>
+        <div class="cell reveal"><div class="num">02</div><h3>Captação</h3><p>Câmera própria, set montado. Eu vou até o local e gravo a cena.</p></div>
+        <div class="cell reveal"><div class="num">03</div><h3>Design gráfico</h3><p>Identidade, peças e material que sustenta a marca em qualquer formato.</p></div>
+        <div class="cell reveal"><div class="num">04</div><h3>Motion design</h3><p>Animação, lower-thirds e aberturas que dão movimento à mensagem.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRABALHOS -->
+  <section class="work" id="trabalhos">
+    <div class="bar">
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px">Cena 02 // Provas reais</div>
+        <h2 class="reveal">Episódios selecionados</h2>
+      </div>
+      <span class="tag reveal">CLIQUE PARA ASSISTIR / AMPLIAR</span>
+    </div>
+
+    <!-- ===== VÍDEOS (vêm do array MEDIA.videos lá no fim do arquivo) ===== -->
+    <div class="subhead reveal">
+      <span class="num">A</span>
+      <h3>Vídeos</h3>
+    </div>
+    <div id="videoGrid"></div>
+
+    <!-- ===== ARTES (projetos do Behance — clique abre no próprio site) ===== -->
+    <div class="subhead reveal" style="margin-top:54px">
+      <span class="num">B</span>
+      <h3>Artes &amp; design gráfico</h3>
+      <a class="seeall" href="https://www.behance.net/joaovictor59" target="_blank" rel="noopener">Ver tudo no Behance →</a>
+    </div>
+    <div class="grid">
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/ab1c29248740829.Y3JvcCwxMDgwLDg0NCwwLDI1MQ.png" data-title="Advocacia" href="https://mir-s3-cdn-cf.behance.net/projects/404/ab1c29248740829.Y3JvcCwxMDgwLDg0NCwwLDI1MQ.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/ab1c29248740829.Y3JvcCwxMDgwLDg0NCwwLDI1MQ.png" alt="Advocacia" loading="lazy"><span class="tc">ART · 01</span></div><div class="meta"><div class="ep">DESIGN</div><h4>Advocacia</h4><p>Identidade e peças.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/1d855b248740593.Y3JvcCwxMDgwLDg0NCwwLDI1MQ.png" data-title="Integraliza 3 Colinas" href="https://mir-s3-cdn-cf.behance.net/projects/404/1d855b248740593.Y3JvcCwxMDgwLDg0NCwwLDI1MQ.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/1d855b248740593.Y3JvcCwxMDgwLDg0NCwwLDI1MQ.png" alt="Integraliza 3 Colinas" loading="lazy"><span class="tc">ART · 02</span></div><div class="meta"><div class="ep">DESIGN</div><h4>Integraliza 3 Colinas</h4><p>Campanha visual.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/3b1eaa224231713.Y3JvcCwxMzgwLDEwODAsMjcwLDA.png" data-title="Connect Performance" href="https://mir-s3-cdn-cf.behance.net/projects/404/3b1eaa224231713.Y3JvcCwxMzgwLDEwODAsMjcwLDA.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/3b1eaa224231713.Y3JvcCwxMzgwLDEwODAsMjcwLDA.png" alt="Identidade Visual - Connect Performance" loading="lazy"><span class="tc">ART · 03</span></div><div class="meta"><div class="ep">BRANDING</div><h4>Connect Performance</h4><p>Identidade visual.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/4a9080204986967.Y3JvcCwxNjE2LDEyNjQsMCww.png" data-title="Social Media · Supermercado" href="https://mir-s3-cdn-cf.behance.net/projects/404/4a9080204986967.Y3JvcCwxNjE2LDEyNjQsMCww.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/4a9080204986967.Y3JvcCwxNjE2LDEyNjQsMCww.png" alt="Social Media - Supermercado" loading="lazy"><span class="tc">ART · 04</span></div><div class="meta"><div class="ep">SOCIAL</div><h4>Social Media · Supermercado</h4><p>Conteúdo e peças.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/70c43f204985941.Y3JvcCwxNjE2LDEyNjQsMCww.png" data-title="Social Media · Instituto TDAH" href="https://mir-s3-cdn-cf.behance.net/projects/404/70c43f204985941.Y3JvcCwxNjE2LDEyNjQsMCww.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/70c43f204985941.Y3JvcCwxNjE2LDEyNjQsMCww.png" alt="Social Media - Instituto/TDAH" loading="lazy"><span class="tc">ART · 05</span></div><div class="meta"><div class="ep">SOCIAL</div><h4>Social Media · Instituto TDAH</h4><p>Conteúdo e peças.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/bec588202525929.Y3JvcCwxNjE2LDEyNjQsMCww.png" data-title="Imobiliária · Infoprodutor" href="https://mir-s3-cdn-cf.behance.net/projects/404/bec588202525929.Y3JvcCwxNjE2LDEyNjQsMCww.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/bec588202525929.Y3JvcCwxNjE2LDEyNjQsMCww.png" alt="Social Media - Imobiliária / Infoprodutor" loading="lazy"><span class="tc">ART · 06</span></div><div class="meta"><div class="ep">SOCIAL</div><h4>Imobiliária · Infoprodutor</h4><p>Conteúdo e peças.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/c882d0192650621.Y3JvcCwxNjE2LDEyNjQsMCww.png" data-title="Evento Médico · Neuropsicologia" href="https://mir-s3-cdn-cf.behance.net/projects/404/c882d0192650621.Y3JvcCwxNjE2LDEyNjQsMCww.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/c882d0192650621.Y3JvcCwxNjE2LDEyNjQsMCww.png" alt="Evento Médico - Neuropsicologia" loading="lazy"><span class="tc">ART · 07</span></div><div class="meta"><div class="ep">EVENTO</div><h4>Evento Médico · Neuropsicologia</h4><p>Identidade do evento.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/38ac11176389021.Y3JvcCwxNjE2LDEyNjQsMCww.png" data-title="Shov It Poker" href="https://mir-s3-cdn-cf.behance.net/projects/404/38ac11176389021.Y3JvcCwxNjE2LDEyNjQsMCww.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/38ac11176389021.Y3JvcCwxNjE2LDEyNjQsMCww.png" alt="Shov It Poker - Social Media" loading="lazy"><span class="tc">ART · 08</span></div><div class="meta"><div class="ep">SOCIAL</div><h4>Shov It Poker</h4><p>Social media.</p></div></a>
+      <a class="card reveal js-lb" data-type="image" data-src="https://mir-s3-cdn-cf.behance.net/projects/404/80f6eb153300455.Y3JvcCwxMTc2LDkyMCwyOTEsMA.png" data-title="Ananda Bonfim · Logotipo" href="https://mir-s3-cdn-cf.behance.net/projects/404/80f6eb153300455.Y3JvcCwxMTc2LDkyMCwyOTEsMA.png"><div class="thumb"><img src="https://mir-s3-cdn-cf.behance.net/projects/404/80f6eb153300455.Y3JvcCwxMTc2LDkyMCwyOTEsMA.png" alt="Ananda Bonfim - Logotipo e Manual de Identidade" loading="lazy"><span class="tc">ART · 09</span></div><div class="meta"><div class="ep">BRANDING</div><h4>Ananda Bonfim · Logotipo</h4><p>Logo e manual de marca.</p></div></a>
+    </div>
+
+    <!-- ===== FOTOS (carrosséis por cliente — vêm de MEDIA.fotos no fim do arquivo) ===== -->
+    <div class="subhead reveal" style="margin-top:54px">
+      <span class="num">C</span>
+      <h3>Fotos</h3>
+      <span class="seeall" style="cursor:default">Arraste para o lado →</span>
+    </div>
+    <div id="fotoGrid"></div>
+  </section>
+
+  <!-- LIGHTBOX (abre fotos e vídeos dentro do próprio site) -->
+  <div class="lb-overlay" id="lightbox" aria-hidden="true">
+    <button class="lb-close" id="lbClose" aria-label="Fechar">×</button>
+    <div class="lb-stage" id="lbStage"></div>
+    <div class="lb-cap" id="lbCap"></div>
+  </div>
+
+  <!-- CONFESSIONÁRIO -->
+  <section class="confession" id="frase">
+    <div class="inner">
+      <div class="q reveal">The Office · S05E23</div>
+      <blockquote class="reveal">“You miss 100% of the shots you don't take.”</blockquote>
+      <div class="attrib reveal">
+        <span>Wayne Gretzky</span>
+        <span>Michael Scott</span>
+        <span>João Victor</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEED DO INSTAGRAM -->
+  <section class="igfeed" id="feed">
+    <div class="igfeed-inner">
+      <div class="ig-head reveal">
+        <div>
+          <div class="eyebrow" style="margin-bottom:8px">Cena final // Nos bastidores</div>
+          <h2>Direto do Instagram</h2>
+        </div>
+      </div>
+      <div class="ig-embed reveal">
+        <figure class="ig-col">
+          <figcaption><a href="https://www.instagram.com/charis.crea/" target="_blank" rel="noopener">Profissional · @charis.crea</a></figcaption>
+          <iframe src="https://www.instagram.com/charis.crea/embed" title="Feed @charis.crea" loading="lazy" frameborder="0" scrolling="no"></iframe>
+        </figure>
+        <figure class="ig-col">
+          <figcaption><a href="https://www.instagram.com/joohn.victor/" target="_blank" rel="noopener">Pessoal · @joohn.victor</a></figcaption>
+          <iframe src="https://www.instagram.com/joohn.victor/embed" title="Feed @joohn.victor" loading="lazy" frameborder="0" scrolling="no"></iframe>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer id="contato">
+    <div class="foot">
+      <div class="reveal" style="flex:1 1 320px">
+        <div class="big">Corta. Bora trabalhar.</div>
+        <p style="color:var(--ink-soft);margin-top:10px;max-width:42ch">Tem projeto na mão? Me chama agora que eu te respondo com prazo, ideia e orçamento.</p>
+        <a class="btn primary" href="https://wa.me/5516993661536" target="_blank" rel="noopener" style="display:inline-block;margin-top:20px;font-size:15px;padding:15px 28px">Me chama no WhatsApp</a>
+      </div>
+      <div class="links reveal">
+        <a href="https://www.instagram.com/joohn.victor/" target="_blank" rel="noopener">INSTAGRAM</a>
+        <a href="https://wa.me/5516993661536" target="_blank" rel="noopener">WHATSAPP</a>
+      </div>
+      <div class="verse" id="verseDaily"></div>
+      <div class="copy">
+        <span>© 2026 JOOHN AUDIOVISUAL &amp; DESIGN · FRANCA, SP</span>
+        <span>EDITADO COM CALMA · NENHUM PRAZO FOI PERDIDO NA PRODUÇÃO DESTE SITE</span>
+      </div>
+    </div>
+  </footer>
+
+<!-- PLAYER SPOTIFY (flutuante) -->
+  <div class="spotify-dock" id="spotifyDock">
+    <button class="spotify-fab" id="spotifyFab" type="button" aria-label="Abrir playlist" aria-expanded="false">
+      <span class="sp-ico">&#9835;</span><span class="sp-label">Trilha</span>
+    </button>
+    <div class="spotify-panel" id="spotifyPanel" hidden>
+      <div class="sp-head"><span>TRILHA DO SET</span><button class="sp-close" id="spotifyClose" type="button" aria-label="Fechar">&times;</button></div>
+      <!-- TROQUE o ID abaixo pela sua playlist: open.spotify.com/playlist/SEU_ID -->
+      <div id="spotifyFrame"></div>
+    </div>
+  </div>
+
+<script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
+<script>
+  // timecode ticker
+  (function(){
+    var el=document.getElementById('tc');
+    if(!el) return;
+    var f=0,s=0,m=0,h=0;
+    function pad(n){return String(n).padStart(2,'0')}
+    if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){el.textContent='00:14:22:09';return;}
+    setInterval(function(){
+      f++;if(f>=24){f=0;s++}if(s>=60){s=0;m++}if(m>=60){m=0;h++}
+      el.textContent=pad(h)+':'+pad(m)+':'+pad(s)+':'+pad(f);
+    },42);
+  })();
+  /* =========================================================================
+     CONTEÚDO DE FOTOS E VÍDEOS  ▸  vêm do seu Google Drive
+     -------------------------------------------------------------------------
+     Cada item usa o ID do arquivo no Drive. Pra trocar/adicionar/remover é só
+     editar as listas abaixo (campo "id" = o trecho do link do Drive entre
+     /d/ e /view). Os arquivos precisam estar como "qualquer pessoa com o link".
+     ========================================================================= */
+  var MEDIA = {
+  videos: [
+    { group:"Motion", items:[
+      { id:"1HL74a4gCSyws0y62uutJWtCX41SSBgxy", title:"Suía" },
+      { id:"1JCZ_43Mib16pDcb4jGa8m9Jlt5iImRxI", title:"Reels Inicial · LimoCast" },
+      { id:"1ulPFO77yek404dyxL6LSw-liIb1mUEg3", title:"Um Novo Tempo · Sicoob" },
+      { id:"1Vj23nGk_PH-H0_fgoLvW8eshk9nDX6hd", title:"Syspro" },
+      { id:"1Stq6_0oIohZkOv0XTNbxVkz6HujLSRc2", title:"Site Hami" },
+      { id:"1Me4ouV_YsfMcIDwIEcR6oxKxmMKj63BG", title:"Campanha Cartões · Sicoob" },
+      { id:"1yIydalHgoaqvkMwLVujgHR7yvRWBhGq-", title:"Cacau do Céu" },
+      { id:"1Rh3pMXJarm8zJgeN5WysasXZ4EiGfT_R", title:"Santa Maria 4" },
+      { id:"11NWuiL1NyY0KtiqwUruqHweHjUmVxOjn", title:"Golpes e Fraudes · Sicoob" },
+      { id:"1FPpRtHXyYgV06rTHFekXbgvzAMrXKBqR", title:"Santa Maria 2" },
+      { id:"1ClI2kqYw3ls45oXPV48NVl74Q2fsbLvX", title:"Santa Maria 1" },
+      { id:"1515h1NUULKtHDR-UA0khM5cVy48Wgzdn", title:"Pixal · Caetano Caprício" },
+      { id:"1jAJ68LZoHAtTVi__0T4TQKVb6LG0v6yT", title:"Quantas Especialidades · Sta. Maria" },
+      { id:"10WsAaDP_GY6SuFkRLSWOaBOSM_uTXtok", title:"Reels Motion · Fernando" },
+      { id:"1WS5DA2kri78XB_-cfb9vq4lCyjJxnLfR", title:"Edição Reels 4.2 · Skinão" },
+      { id:"1bnOPBJZSPx2GbPa6t3BsKXosQd142fb6", title:"Lancheira · Massas Daiana" },
+      { id:"1nhSpAtOZV81jR4IAFOFXS8nXiuLgxC5F", title:"Limonada Expresso" },
+      { id:"1R3S-rMgm33GFBOaQwZWvzZSeKhI6i1Pm", title:"Social Media Portrait HD" }
+    ] },
+    { group:"Reels", items:[
+      { id:"1TEkKGmvbRhdL4JnL9thfccDuDporRZGk", title:"Tailândia e Indonésia · Renata Calil" },
+      { id:"1H7pry6joHlzhDKLc198e5ifyopyUnhdY", title:"Congresso Dia 3" },
+      { id:"1OLia3wVKmx2SOoRZDG_AQiuJceF3to-P", title:"Dia das Mulheres · Tower" },
+      { id:"1C5GIt8yCAn-YF-AGg4x-145nNudyZ_nP", title:"Camarão Recheado · Yuyake" },
+      { id:"169i-NVZl6vdQ0PXNMHN9GMpteKi3U8pO", title:"Drones no Agro · Conag" },
+      { id:"1id6ytFwyuEn-ZVH3hjDhsuB8rx19ziRx", title:"Braziland 03" },
+      { id:"1HJUOLpuLEzEw_Uyn0Wb46uuXju4L_TS0", title:"Braziland 01 · Conceito" },
+      { id:"12lq2lI10MvLxg5ZZ57ldhs8l3XRUFnOi", title:"Edição Reels 1 · Conag" },
+      { id:"1idGiJSDvmoZf--2kKXGm7rKP3cN4w1v8", title:"Reels 1 · Março · Conag" },
+      { id:"1KPdt1UkW3vGX8hSKHEUQ7piHj8b2vbtx", title:"Renata Calil" }
+    ] },
+    { group:"Clipe", items:[
+      { id:"1sEyYxmj3YWDJS176_3mgTtGGvLA29erC", title:"Adeus Passado Meu" }
+    ] },
+    { group:"Documentários", items:[] }
+  ],
+  fotos: [
+    { client:"COMADEF", items:[
+      { id:"1nzF5531EP7_HTvIWXA2zcZPd-J4XTE8d", title:"COMADEF · 01" },
+      { id:"11QDMjA98438HBsDxecXcTXWn5Vt-tT-B", title:"COMADEF · 02" },
+      { id:"1zS0vcUixwrhoQ32Yzs4otoZRsmcYOCyT", title:"COMADEF · 03" },
+      { id:"1iui7Ahp8BDsI_vbZN8lQmxxu8IOdDPtV", title:"COMADEF · 04" },
+      { id:"1lvaYQNjT2dUQKqkwrRrZrSZf4PHfbdxe", title:"COMADEF · 05" },
+      { id:"1DeziXU_0Vyg5GClsvp3pmWgrRXYwZnQu", title:"COMADEF · 06" },
+      { id:"196dJX4_609MESvJ86fh2x0IJ1KjJesHg", title:"COMADEF · 07" },
+      { id:"1K_5MQOB4UYJPPELh77zdIRBVotavo9jK", title:"COMADEF · 08" },
+      { id:"1B_PZjXWy4rDLwo3FB-N6wxEvft1mEQs1", title:"COMADEF · 09" },
+      { id:"1oTDxA__3ydAZEBGxmaNRvKteGZwOuHhP", title:"COMADEF · 10" },
+      { id:"1d6eme3i0a16XrlkARiRELYK_SgEtZsGu", title:"COMADEF · 11" },
+      { id:"1Jk7ahPyqAItI7MAgDbBj36A_JNAAHDiJ", title:"COMADEF · 12" },
+      { id:"1DGwZwKGc9NTfZZaLVY1vMlsaNkWCukJL", title:"COMADEF · 13" },
+      { id:"1MW8rvhOsbusMSMTS-hi7yck8kq9RXjSD", title:"COMADEF · 14" }
+    ]},
+    { client:"3 Comadres", items:[
+      { id:"1eGmaLlTz4D4xLxNEc-XzhxN52bRCixFL", title:"3 Comadres · 01" },
+      { id:"1lYHqFMuwGuchX5_vsKZsWDfvSxbPOtTm", title:"3 Comadres · 02" },
+      { id:"1YmY1_cAKlCdIXR65qG94Cu9ZxNo-sdl1", title:"3 Comadres · 03" },
+      { id:"1AdpOCax4Bwvx_g1j7iZ2AmMQF21w8xaP", title:"3 Comadres · 04" },
+      { id:"16VDeR0eMhlqwKtIY6YQRfSuOAdRrdSl6", title:"3 Comadres · 05" },
+      { id:"1xgMM4kcCMIJ5IsP3x9hcZEnE3BGODOwv", title:"3 Comadres · 06" },
+      { id:"1l68dhhBS73GZvwnMifC5X9RfuRQg4M2F", title:"3 Comadres · 07" },
+      { id:"1Q-nouVZ3wbOJidqFsNeGqbnUDqMHHaLl", title:"3 Comadres · 08" },
+      { id:"1WtiW6ysb4BYhZlySN1eSAiGRWqSaN3Ot", title:"3 Comadres · 09" },
+      { id:"12C7c4qciGxhmasZ7JLZrASQmscC6-_w3", title:"3 Comadres · 10" },
+      { id:"13Q4oPBXdMlGqfj7CkOmfxsHDShGxVMk-", title:"3 Comadres · 11" },
+      { id:"1Kn0hsqKA1FYhLhpFbCgrfrO_tkq40sSB", title:"3 Comadres · 12" },
+      { id:"1vly9wN5No2EL8HD4XzkzPKSxDjw7S6fm", title:"3 Comadres · 13" },
+      { id:"18J-zbZ6IponLVweq1mWmEKxSqlPU2mqj", title:"3 Comadres · 14" },
+      { id:"1VEzLLFpAJHdEV87DHhs_i_7DKjQ2QE0a", title:"3 Comadres · 15" }
+    ]},
+    { client:"TechMalhas", items:[
+      { id:"1yFmrpqwyptKp00s4IKedwnalWLP3LTP1", title:"TechMalhas · 01" },
+      { id:"1BoV1Em8F6aasAs8yH1ej3CmSercYTsrX", title:"TechMalhas · 02" },
+      { id:"1NloU8Av8TnMsTjVd56O3pfmP78T-K-xs", title:"TechMalhas · 03" },
+      { id:"1hLBFAoIV22ZLeVSJTpcad7JJ8ejB6EHy", title:"TechMalhas · 04" },
+      { id:"1xV9O45xOlhtjzAc3rggFeXMiBfDn0JMK", title:"TechMalhas · 05" },
+      { id:"1tI1DExOD7YJjdWy5kXJHgtOjtGtkGss3", title:"TechMalhas · 06" },
+      { id:"1jlqkt0dIZHeHZWLYfpawifzZwRfVNg8p", title:"TechMalhas · 07" },
+      { id:"1kwsK0HGQIYWa6mmfjd_OhVHzhhamUWMt", title:"TechMalhas · 08" },
+      { id:"1ObRZA4k4Wx0CBoOqXWUsDJ4wB8zjgbpU", title:"TechMalhas · 09" },
+      { id:"11nXluTpwgb0eTWpMLtKSSIDN3JjLG3Wp", title:"TechMalhas · 10" },
+      { id:"1mezrslt4E_39dI7a79R5cDSaks0XgAAJ", title:"TechMalhas · 11" },
+      { id:"17zQz-ZuaZ-s0vo-26qK35DrjFUtw2vis", title:"TechMalhas · 12" }
+    ]},
+    { client:"Doutora", items:[
+      { id:"1o5yTl5BvQCfKZy4NeABZBIN7st9RxAKT", title:"Doutora · 01" },
+      { id:"1DNEta_kyQURRyFk_eCrn_hEgrNSGDi0t", title:"Doutora · 02" },
+      { id:"1LKIoUCCS8yPgZKpB3DLu2ojujg8XpvOx", title:"Doutora · 03" },
+      { id:"1nGdMRTunX32jyckCB59b3enn1ga7zRlK", title:"Doutora · 04" },
+      { id:"1XVWnPxZEkXv1k1-uWduS2w815ayuf8eQ", title:"Doutora · 05" },
+      { id:"16ygqZnI0UjqxHXgUEWeeuZid_pXQw9QU", title:"Doutora · 06" },
+      { id:"1ox_vybKt0bcukNPXxj8I9WnDJOZ4I1du", title:"Doutora · 07" },
+      { id:"1JFHI_ZSNO2ZzYgEB2wyU8ddkhi92fti4", title:"Doutora · 08" },
+      { id:"1v2m2Ana27ztMnvzzb-F-9hKPNo4HfnKJ", title:"Doutora · 09" },
+      { id:"1ZYUB6hSqLNV4CNdtikAvivU91-2ejjKH", title:"Doutora · 10" },
+      { id:"1LWOckFz1XH07RdSO7UkLI2zyGR9DQ5Aq", title:"Doutora · 11" },
+      { id:"1dxJ4IbiP0SjWZwFS-UHNqcMdEEkizpq1", title:"Doutora · 12" },
+      { id:"1MaIOxDwvpzYP7WFuOqSTcgSNKySxAAtI", title:"Doutora · 13" }
+    ]},
+    { client:"Barbudus", items:[
+      { id:"1jOOWYcigjMMwi0bY2zuPLX3uDEbx9bSq", title:"Barbudus · 01" },
+      { id:"1uxCXcWPCHV54hh7nrckBh_UbZJEqxIza", title:"Barbudus · 02" },
+      { id:"1DG17qYVhryrypn875JgGY7KcDrNwZADk", title:"Barbudus · 03" },
+      { id:"1h07j4ArrhBYwOq0RwcrzQxh_WjVMr5Rl", title:"Barbudus · 04" },
+      { id:"1gYtepBsEVuZgcE1EVHYdybl9FkLpBf6z", title:"Barbudus · 05" },
+      { id:"1kYb9n5fMXv5ce2HjCh-cssrvSeLo3C-V", title:"Barbudus · 06" },
+      { id:"1XY2xScNP3cr2zs9EowgPDoMyzbqAm8tw", title:"Barbudus · 07" },
+      { id:"11C8FhDaesomJTfgsYt5ht2H1dK-f6V6h", title:"Barbudus · 08" },
+      { id:"1EP-uI3_wwaMgJx80wJEjJ8CWRA6uaKkb", title:"Barbudus · 09" }
+    ]}
+  ]
+  };
+
+  (function(){
+    function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+    function pad(n){return String(n).padStart(2,'0')}
+    function dThumb(id,w){return 'https://drive.google.com/thumbnail?id='+id+'&sz=w'+w}
+    function dPrev(id){return 'https://drive.google.com/file/d/'+id+'/preview'}
+    function dView(id){return 'https://drive.google.com/file/d/'+id+'/view'}
+
+    function renderVideos(){
+      var g=document.getElementById('videoGrid'); if(!g) return;
+      g.innerHTML = MEDIA.videos.map(function(grp){
+        var cards = (grp.items||[]).map(function(v){
+          if(!v.id) return '';
+          return '<a class="card reveal js-lb vcard" data-type="video" data-id="'+esc(v.id)+'" data-title="'+esc(v.title)+'" href="'+dView(v.id)+'" target="_blank" rel="noopener">'+
+                 '<div class="thumb"><img src="'+dThumb(v.id,800)+'" alt="'+esc(v.title)+'" loading="lazy" referrerpolicy="no-referrer"><span class="vbadge"><span class="tri"></span></span></div>'+
+                 '<div class="meta"><div class="ep">VÍDEO</div><h4>'+esc(v.title)+'</h4></div></a>';
+        }).join('');
+        if(!cards) cards = '<div class="empty-note">Em breve — adicione vídeos na pasta &quot;'+esc(grp.group)+'&quot; do Drive.</div>';
+        return '<div class="cli reveal"><div class="cli-head"><span class="cdot"></span><h4>'+esc(grp.group)+'</h4><span class="ccount">'+((grp.items&&grp.items.length)||0)+' vídeos</span></div>'+
+               '<div class="vgrid">'+cards+'</div></div>';
+      }).join('');
+    }
+
+    function renderFotos(){
+      var g=document.getElementById('fotoGrid'); if(!g) return;
+      g.innerHTML = MEDIA.fotos.map(function(grp){
+        var slides = (grp.items||[]).map(function(f){
+          if(!f.id) return '';
+          return '<a class="slide js-lb" data-type="image" data-id="'+esc(f.id)+'" data-title="'+esc(f.title)+'" href="'+dView(f.id)+'" target="_blank" rel="noopener"><img src="'+dThumb(f.id,700)+'" alt="'+esc(f.title)+'" loading="lazy" referrerpolicy="no-referrer"></a>';
+        }).join('');
+        return '<div class="cli reveal"><div class="cli-head"><span class="cdot"></span><h4>'+esc(grp.client)+'</h4><span class="ccount">'+(grp.items?grp.items.length:0)+' fotos</span></div>'+
+               '<div class="carousel-wrap"><button class="cbtn prev" type="button" aria-label="Anterior">&#8249;</button>'+
+               '<div class="carousel" data-carousel>'+slides+'</div>'+
+               '<button class="cbtn next" type="button" aria-label="Proximo">&#8250;</button></div></div>';
+      }).join('');
+      g.querySelectorAll('[data-carousel]').forEach(function(track){
+        enableDrag(track);
+        var wrap=track.parentNode;
+        var prev=wrap.querySelector('.prev'), next=wrap.querySelector('.next');
+        function step(d){ track.scrollBy({left:d*Math.max(300,track.clientWidth*0.85),behavior:'smooth'}); }
+        if(prev) prev.addEventListener('click',function(){step(-1)});
+        if(next) next.addEventListener('click',function(){step(1)});
+      });
+    }
+
+    function enableDrag(track){
+      var down=false,moved=false,sx=0,sl=0;
+      track.addEventListener('pointerdown',function(e){
+        if(e.pointerType!=='mouse') return;
+        down=true;moved=false;sx=e.clientX;sl=track.scrollLeft;track.classList.add('dragging');
+        try{track.setPointerCapture(e.pointerId)}catch(_){}
+      });
+      track.addEventListener('pointermove',function(e){
+        if(!down) return; var dx=e.clientX-sx; if(Math.abs(dx)>4) moved=true; track.scrollLeft=sl-dx;
+      });
+      function end(){ down=false; track.classList.remove('dragging'); if(moved){ track._sup=true; } }
+      track.addEventListener('pointerup',end);
+      track.addEventListener('pointercancel',end);
+      track.addEventListener('mouseleave',function(){ if(down) end(); });
+      track.addEventListener('click',function(e){ if(track._sup){ e.preventDefault(); e.stopPropagation(); track._sup=false; } },true);
+    }
+
+    /* =======================================================================
+       SINCRONIZAÇÃO AUTOMÁTICA COM O GOOGLE DRIVE
+       -----------------------------------------------------------------------
+       Cole sua chave da API do Google em DRIVE.apiKey (passo a passo no chat).
+       Com a chave, o site lê as pastas do Drive toda vez que abrir:
+         - cada subpasta de "Fotos"  -> vira um carrossel
+         - cada outra pasta da raiz  -> vira uma categoria de vídeos
+           (Motion, Reels, Clipe, Documentários e qualquer nova que criar)
+       Sem chave (ou se a API falhar), usa a lista fixa de MEDIA acima.
+       ======================================================================= */
+    var DRIVE = {
+      apiKey: "AIzaSyAVxNPKeITWricb5YIcT2PabxN7eUWgyXM",
+      rootId: "1JnmTz6jAwk8tJUx3sTgJV5Uw3dumEFl0",
+      fotosFolderName: "Fotos",
+      videoOrder: ["Motion","Reels","Clipe","Documentários","Documentarios"]
+    };
+
+    function gList(q){
+      var url='https://www.googleapis.com/drive/v3/files?key='+encodeURIComponent(DRIVE.apiKey)
+        +'&q='+encodeURIComponent(q+" and trashed=false")
+        +'&fields='+encodeURIComponent('files(id,name,mimeType)')
+        +'&orderBy=name_natural&pageSize=1000';
+      return fetch(url).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+                       .then(function(j){ return (j&&j.files)||[]; });
+    }
+    function isFolder(f){ return f.mimeType==='application/vnd.google-apps.folder'; }
+    function stripExt(n){ return String(n).replace(/\.[^.\/]+$/,''); }
+
+    function syncDrive(){
+      return gList("'"+DRIVE.rootId+"' in parents").then(function(children){
+        var folders = children.filter(isFolder);
+        var fotosFolder = folders.filter(function(f){return f.name===DRIVE.fotosFolderName;})[0];
+        var vcats = folders.filter(function(f){return f.name!==DRIVE.fotosFolderName;});
+        vcats.sort(function(a,b){
+          var ia=DRIVE.videoOrder.indexOf(a.name), ib=DRIVE.videoOrder.indexOf(b.name);
+          if(ia<0) ia=99; if(ib<0) ib=99;
+          return (ia-ib) || a.name.localeCompare(b.name);
+        });
+        var videos = vcats.map(function(c){ return {group:c.name, items:[]}; });
+        var jobs = vcats.map(function(c,idx){
+          return gList("'"+c.id+"' in parents and mimeType contains 'video/'").then(function(fs){
+            videos[idx].items = fs.map(function(f){ return {id:f.id,title:stripExt(f.name)}; });
+          });
+        });
+        var fotos=[];
+        var fjob = !fotosFolder ? Promise.resolve() :
+          gList("'"+fotosFolder.id+"' in parents and mimeType='application/vnd.google-apps.folder'").then(function(clients){
+            clients.sort(function(a,b){return a.name.localeCompare(b.name);});
+            fotos = clients.map(function(cl){ return {client:cl.name, items:[]}; });
+            return Promise.all(clients.map(function(cl,i){
+              return gList("'"+cl.id+"' in parents and mimeType contains 'image/'").then(function(imgs){
+                fotos[i].items = imgs.map(function(f){ return {id:f.id,title:cl.name}; });
+              });
+            }));
+          });
+        return Promise.all(jobs.concat([fjob])).then(function(){
+          if(videos.length) MEDIA.videos = videos;
+          if(fotos.length)  MEDIA.fotos  = fotos;
+        });
+      });
+    }
+
+    function boot(){
+      renderVideos(); renderFotos();
+      // re-renderizações (sync do Drive) não passam pelo IntersectionObserver — torna visível na hora
+      document.querySelectorAll('#videoGrid .reveal, #fotoGrid .reveal').forEach(function(e){ e.classList.add('in'); });
+    }
+    boot(); // mostra a lista fixa na hora
+    if(DRIVE.apiKey){
+      syncDrive().then(boot).catch(function(e){ console.warn('Sync Drive falhou — usando lista local.', e); });
+    }
+
+    // ===== lightbox (abre no próprio site) =====
+    var lb=document.getElementById('lightbox'),
+        stage=document.getElementById('lbStage'),
+        cap=document.getElementById('lbCap'),
+        closeBtn=document.getElementById('lbClose');
+
+    function openLB(o){
+      if(o.type==='video'){
+        if(window.__sp){ try{ window.__sp.pause(); }catch(e){} } // pausa a música ao abrir um vídeo
+        var src = o.id ? dPrev(o.id) : o.src;
+        stage.innerHTML='<iframe src="'+esc(src)+'" allow="autoplay; fullscreen" allowfullscreen style="width:min(92vw,1000px);height:min(80vh,640px);border:0;border-radius:6px;background:#000"></iframe>';
+      }else{
+        var img = o.id ? dThumb(o.id,2000) : o.src;
+        stage.innerHTML='<img src="'+esc(img)+'" alt="'+esc(o.title)+'" referrerpolicy="no-referrer">';
+      }
+      cap.innerHTML='<span>'+esc(o.title||'')+'</span>'+(o.link?'<a href="'+esc(o.link)+'" target="_blank" rel="noopener">Ver projeto no Behance →</a>':'');
+      lb.classList.add('open'); lb.setAttribute('aria-hidden','false');
+    }
+    function closeLB(){ lb.classList.remove('open'); lb.setAttribute('aria-hidden','true'); stage.innerHTML=''; }
+
+    document.addEventListener('click',function(e){
+      var card=e.target.closest('.js-lb');
+      if(card){
+        e.preventDefault();
+        openLB({type:card.getAttribute('data-type'),id:card.getAttribute('data-id'),src:card.getAttribute('data-src'),title:card.getAttribute('data-title'),link:card.getAttribute('data-link')});
+      }
+    });
+    closeBtn.addEventListener('click',closeLB);
+    lb.addEventListener('click',function(e){ if(e.target===lb) closeLB(); });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&lb.classList.contains('open')) closeLB(); });
+  })();
+
+  // scroll reveal
+  (function(){
+    var els=document.querySelectorAll('.reveal:not(.in)');
+    if(!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')});return;}
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.14});
+    els.forEach(function(e){io.observe(e)});
+  })();
+
+  // ===== modo escuro (botao) =====
+  (function(){
+    var btn=document.getElementById('themeToggle'); if(!btn) return;
+    function apply(t){
+      if(t==='dark'){ document.documentElement.setAttribute('data-theme','dark'); btn.textContent='☀️'; btn.title='Modo claro'; }
+      else{ document.documentElement.removeAttribute('data-theme'); btn.textContent='🌙'; btn.title='Modo escuro'; }
+    }
+    var cur='light'; try{ if(localStorage.getItem('theme')==='dark') cur='dark'; }catch(e){}
+    apply(cur);
+    btn.addEventListener('click',function(){
+      cur=(cur==='dark')?'light':'dark';
+      apply(cur);
+      try{ localStorage.setItem('theme',cur); }catch(e){}
+    });
+  })();
+
+  // ===== player do spotify (abrir/fechar) =====
+  (function(){
+    var fab=document.getElementById('spotifyFab'),
+        panel=document.getElementById('spotifyPanel'),
+        closeBtn=document.getElementById('spotifyClose');
+    if(!fab||!panel) return;
+    function show(o){ panel.hidden=!o; fab.setAttribute('aria-expanded', o?'true':'false'); }
+    fab.addEventListener('click',function(){ show(panel.hidden); });
+    if(closeBtn) closeBtn.addEventListener('click',function(){ show(false); });
+  })();
+
+  // ===== Spotify via IFrame API (permite pausar ao abrir vídeo) =====
+  window.onSpotifyIframeApiReady = function(IFrameAPI){
+    var el=document.getElementById('spotifyFrame'); if(!el) return;
+    try{
+      IFrameAPI.createController(el, { uri:'spotify:playlist:2eKbugD5cX7wTilewz1Pi3', width:'100%', height:352 }, function(ctrl){
+        window.__sp = ctrl;
+      });
+    }catch(e){}
+  };
+  // fallback: se a API não carregar (offline/file://), mostra o player simples
+  setTimeout(function(){
+    var el=document.getElementById('spotifyFrame');
+    if(el && !el.querySelector('iframe')){
+      el.innerHTML='<iframe src="https://open.spotify.com/embed/playlist/2eKbugD5cX7wTilewz1Pi3?utm_source=generator" width="100%" height="352" frameborder="0" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>';
+    }
+  }, 4500);
+
+  // ===== versículo diário (muda a cada dia, igual o dia todo) =====
+  (function(){
+    var el=document.getElementById('verseDaily'); if(!el) return;
+    var V=[
+      {t:"Porque para Deus nada é impossível.",r:"Lucas 1:37"},
+      {t:"Tudo posso naquele que me fortalece.",r:"Filipenses 4:13"},
+      {t:"O Senhor é o meu pastor; nada me faltará.",r:"Salmos 23:1"},
+      {t:"Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.",r:"Salmos 37:5"},
+      {t:"Esforça-te, e tem bom ânimo; não temas, nem te espantes.",r:"Josué 1:9"},
+      {t:"O amor é paciente, é benigno.",r:"1 Coríntios 13:4"},
+      {t:"Lâmpada para os meus pés é a tua palavra, e luz para o meu caminho.",r:"Salmos 119:105"},
+      {t:"Buscai primeiro o reino de Deus, e a sua justiça.",r:"Mateus 6:33"},
+      {t:"Aquietai-vos e sabei que eu sou Deus.",r:"Salmos 46:10"},
+      {t:"O Senhor é a minha luz e a minha salvação; a quem temerei?",r:"Salmos 27:1"},
+      {t:"Em tudo dai graças, porque esta é a vontade de Deus.",r:"1 Tessalonicenses 5:18"},
+      {t:"A alegria do Senhor é a vossa força.",r:"Neemias 8:10"},
+      {t:"Bem-aventurados os que choram, porque serão consolados.",r:"Mateus 5:4"},
+      {t:"Confia no Senhor de todo o teu coração.",r:"Provérbios 3:5"},
+      {t:"Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.",r:"Salmos 46:1"},
+      {t:"Aquele que habita no esconderijo do Altíssimo descansará à sombra do Onipotente.",r:"Salmos 91:1"},
+      {t:"Vinde a mim, todos os que estais cansados, e eu vos aliviarei.",r:"Mateus 11:28"},
+      {t:"Eu sou o caminho, e a verdade, e a vida.",r:"João 14:6"},
+      {t:"Não andeis ansiosos por coisa alguma.",r:"Filipenses 4:6"},
+      {t:"Ora, a fé é o firme fundamento das coisas que se esperam.",r:"Hebreus 11:1"},
+      {t:"Melhor é o fim das coisas do que o seu princípio.",r:"Eclesiastes 7:8"},
+      {t:"O Senhor pelejará por vós, e vós vos calareis.",r:"Êxodo 14:14"},
+      {t:"Sede fortes e corajosos; não temais.",r:"Deuteronômio 31:6"},
+      {t:"Lança o teu cuidado sobre o Senhor, e ele te susterá.",r:"Salmos 55:22"},
+      {t:"As misericórdias do Senhor se renovam cada manhã; grande é a tua fidelidade.",r:"Lamentações 3:23"},
+      {t:"Deleita-te no Senhor, e ele te concederá os desejos do teu coração.",r:"Salmos 37:4"},
+      {t:"Tudo tem o seu tempo determinado debaixo do céu.",r:"Eclesiastes 3:1"},
+      {t:"O choro pode durar uma noite, mas a alegria vem pela manhã.",r:"Salmos 30:5"},
+      {t:"Não temas, porque eu sou contigo; não te assombres.",r:"Isaías 41:10"},
+      {t:"Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito.",r:"João 3:16"},
+      {t:"Como o Pai me amou, também eu vos amei; permanecei no meu amor.",r:"João 15:9"}
+    ];
+    var now=new Date();
+    var day=Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
+    var v=V[day % V.length];
+    el.innerHTML='<span class="vq">“'+v.t+'”</span><span class="vr">'+v.r+'</span>';
+  })();
+</script>
+</body>
+</html>
