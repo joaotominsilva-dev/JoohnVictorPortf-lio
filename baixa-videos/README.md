@@ -6,12 +6,16 @@ suportados pelo yt-dlp), com a identidade visual do portfólio JOOHN.
 ## Instalar
 
 1. Pegue o APK na pasta `apk/` desta pasta (ou em Releases / Actions do GitHub):
-   - `BaixaVideos-1.0.0-arm64-v8a.apk`: serve em quase todos os celulares.
-   - `BaixaVideos-1.0.0-armeabi-v7a.apk`: só se o primeiro não instalar (celulares antigos ou Android Go).
+   - `BaixaVideos-arm64-v8a.apk`: serve em quase todos os celulares.
+   - `BaixaVideos-armeabi-v7a.apk`: só se o primeiro não instalar (celulares antigos ou Android Go).
 2. Abra o arquivo no celular e permita "instalar apps desconhecidos" quando o Android pedir.
 3. Na primeira abertura o app prepara o motor (alguns segundos) e atualiza o yt-dlp sozinho.
 
-Requer Android 7.0 ou mais novo.
+Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia interativa do app.
+
+| Início | Baixando | Concluído | Ajustes | Tema escuro |
+| --- | --- | --- | --- | --- |
+| ![Início](docs/screenshots/01_inicio.png) | ![Baixando](docs/screenshots/02_baixando.png) | ![Concluído](docs/screenshots/03_concluido.png) | ![Ajustes](docs/screenshots/04_ajustes.png) | ![Tema escuro](docs/screenshots/05_inicio_escuro.png) |
 
 ## Usar
 

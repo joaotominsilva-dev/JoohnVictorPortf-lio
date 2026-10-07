@@ -172,7 +172,11 @@ jobs:
         run: |
           mkdir -p baixa-videos/apk baixa-videos/docs/screenshots
           rm -f baixa-videos/apk/*.apk
-          cp novos-apks/*.apk baixa-videos/apk/
+          # nomes fixos (sem a versão) para os links de download não mudarem
+          for f in novos-apks/*.apk; do
+            abi=$(basename "$f" .apk | sed -E 's/^BaixaVideos-[^-]+-//')
+            cp "$f" "baixa-videos/apk/BaixaVideos-$abi.apk"
+          done
           find teste-emulador -name '*.png' -exec cp {} baixa-videos/docs/screenshots/ \;
           ls -la baixa-videos/apk baixa-videos/docs/screenshots
           version=$(grep -oP 'versionName = "\K[^"]+' baixa-videos/app/build.gradle.kts)

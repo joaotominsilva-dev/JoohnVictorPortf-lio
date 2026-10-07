@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -329,18 +328,22 @@ private fun InputPanel(url: String, onUrlChange: (String) -> Unit, settings: Set
                 }
             }
             if (settings.mode == DownloadMode.VIDEO) {
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("QUALIDADE", style = MonoLabel, color = c.inkSoft)
+                Spacer(Modifier.height(12.dp))
+                Text("QUALIDADE", style = MonoLabel.copy(fontWeight = FontWeight.Bold), color = c.inkSoft)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     VideoQuality.entries.forEach { quality ->
                         FilterChip(
                             selected = settings.quality == quality,
                             onClick = { Prefs.update { it.copy(quality = quality) } },
-                            label = { Text(quality.label) },
+                            modifier = Modifier.weight(1f),
+                            label = {
+                                Text(
+                                    quality.label,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                )
+                            },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = c.blue,
                                 selectedLabelColor = Color.White,
