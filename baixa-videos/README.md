@@ -57,7 +57,8 @@ O workflow `.github/workflows/baixa-videos.yml`:
 - compila os APKs e anexa como artefatos a cada push;
 - roda os testes instrumentados num emulador Android 14 (motor, download e conversão para MP3 de um
   vídeo local, e uma tentativa com links reais), guardando log e screenshots;
-- com **Run workflow** e a opção "Salvar os APKs" marcada, grava os APKs em `apk/` na branch;
+- se os testes passarem e o workflow for rodado com a opção "salvar" marcada (ou o commit tiver
+  `[salvar-apk]` na mensagem), grava os APKs em `apk/` e as capturas de tela em `docs/screenshots/`;
 - em `main`, publica os APKs numa Release.
 
 **Assinatura:** a chave em `app/keystore/` é do projeto e fica no repositório de propósito, para toda
