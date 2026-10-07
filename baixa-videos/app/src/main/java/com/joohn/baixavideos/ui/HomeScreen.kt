@@ -72,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -340,8 +341,11 @@ private fun InputPanel(url: String, onUrlChange: (String) -> Unit, settings: Set
                                 Text(
                                     quality.label,
                                     modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.labelMedium,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(

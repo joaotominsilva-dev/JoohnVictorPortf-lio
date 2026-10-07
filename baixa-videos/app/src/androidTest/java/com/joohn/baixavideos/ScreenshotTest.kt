@@ -40,7 +40,7 @@ class ScreenshotTest {
             delay(1_500)
             TestSupport.screenshot(device, context, "01_inicio")
 
-            TestHttpServer(TestSupport.testAssets, "dash", delayMs = 300, chunkDelayMs = 250).use { server ->
+            TestHttpServer(TestSupport.testAssets, "dash", delayMs = 300, chunkDelayMs = 400).use { server ->
                 val task = Downloads.enqueue(
                     context, server.url("Ensaio%20em%20fita%20VHS.mpd"), DownloadMode.VIDEO, VideoQuality.P1080,
                 )
@@ -51,6 +51,7 @@ class ScreenshotTest {
                             (t.status == TaskStatus.DOWNLOADING && (t.progress ?: 0f) > 0.1f)
                     }
                 }
+                delay(700) // o emulador (renderização por software) leva alguns quadros para redesenhar
                 TestSupport.screenshot(device, context, "02_baixando")
                 withTimeout(3.minutes) {
                     Downloads.tasks.first { list -> list.firstOrNull { it.id == task.id }?.status?.isActive == false }
