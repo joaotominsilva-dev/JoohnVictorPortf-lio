@@ -46,7 +46,7 @@ Código principal em `app/src/main/java/com/joohn/baixavideos`:
 ## Compilar
 
 ```bash
-./gradlew assembleRelease        # JDK 17 e Android SDK 36
+./gradlew assembleRelease        # JDK 17 e Android SDK 37
 ```
 
 Gera um APK por arquitetura em `app/build/outputs/apk/release/`. Um APK universal passaria de

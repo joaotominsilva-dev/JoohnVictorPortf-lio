@@ -13,7 +13,7 @@ val supportedAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
 
 android {
     namespace = "com.joohn.baixavideos"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.joohn.baixavideos"
