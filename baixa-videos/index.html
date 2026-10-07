@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baixa Vídeos · JOOHN</title>
+<meta name="description" content="App Android para baixar vídeos e áudios do Instagram, YouTube e TikTok. Prévia interativa, telas reais e download do APK.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Courier+Prime:wght@400;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2EEE4; --paper-2:#E7E0CF; --panel:#EDE7D8; --ink:#22221E; --ink-soft:#54534A;
+    --blue:#1B4F8C; --blue-bright:#2E6DB4; --rec:#C0392B; --line:#C9BFA8; --line-dark:#B0A78F;
+    --gold:#B98A2E; --green:#3E6B5E; --strip:#1B4F8C; --on-strip:#EAF1F8; --on-blue:#FFFFFF;
+    --phone:#1D1C18; --shadow:rgba(34,34,30,.16);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#161510; --paper-2:#26231B; --panel:#1E1C15; --ink:#ECE7D8; --ink-soft:#A7A290;
+      --blue:#5E93D6; --blue-bright:#82B2EE; --rec:#E15A4C; --line:#39362B; --line-dark:#4B4737;
+      --gold:#CB9D41; --green:#5F9485; --strip:#173A63; --on-strip:#EAF1F8; --on-blue:#0B1E33;
+      --phone:#050504; --shadow:rgba(0,0,0,.45);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#161510; --paper-2:#26231B; --panel:#1E1C15; --ink:#ECE7D8; --ink-soft:#A7A290;
+    --blue:#5E93D6; --blue-bright:#82B2EE; --rec:#E15A4C; --line:#39362B; --line-dark:#4B4737;
+    --gold:#CB9D41; --green:#5F9485; --strip:#173A63; --on-strip:#EAF1F8; --on-blue:#0B1E33;
+    --phone:#050504; --shadow:rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:"Public Sans",-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit}
+  .mono{font-family:"Courier Prime",monospace}
+  .display{font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px}
+
+  /* ===== faixa e navegação (iguais ao portfólio) ===== */
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 26px;background:var(--strip);color:var(--on-strip);font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.04em}
+  .topbar .left{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--rec);display:inline-block;margin-right:6px;animation:blink 1.3s ease-in-out infinite}
+  @keyframes blink{50%{opacity:.25}}
+  nav{display:flex;justify-content:space-between;align-items:center;padding:18px 26px;border-bottom:1px solid var(--line);gap:16px}
+  .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+  .mark{width:34px;height:34px;border-radius:4px;background:var(--blue);color:#fff;display:grid;place-items:center;font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:17px;box-shadow:2px 2px 0 var(--line-dark);flex:none}
+  .wordmark{font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:18px;letter-spacing:.02em;line-height:1.1}
+  .wordmark small{display:block;font-family:"Courier Prime",monospace;font-weight:400;font-size:10px;letter-spacing:.14em;color:var(--ink-soft);margin-top:2px}
+  .navlinks{display:flex;gap:24px;align-items:center;font-size:13px;font-weight:600}
+  .navlinks a{text-decoration:none;position:relative;padding-bottom:2px}
+  .navlinks a::after{content:"";position:absolute;left:0;bottom:-2px;width:0;height:2px;background:var(--rec);transition:width .25s ease}
+  .navlinks a:hover::after{width:100%}
+  .theme-btn{border:1px solid var(--line-dark);border-radius:4px;padding:6px 10px;font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.06em;background:var(--panel)}
+
+  /* ===== hero ===== */
+  .wrap{max-width:1180px;margin:0 auto;padding:0 26px}
+  .hero{position:relative;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:48px;align-items:center;padding:64px 26px 72px;max-width:1180px;margin:0 auto}
+  .frame{position:absolute;width:28px;height:28px;border:2px solid var(--ink);opacity:.7;pointer-events:none}
+  .frame.tl{top:28px;left:26px;border-right:0;border-bottom:0}.frame.tr{top:28px;right:26px;border-left:0;border-bottom:0}
+  .frame.bl{bottom:28px;left:26px;border-right:0;border-top:0}.frame.br{bottom:28px;right:26px;border-left:0;border-top:0}
+  .eyebrow{font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.16em;color:var(--ink-soft);display:flex;align-items:center;gap:6px;margin-bottom:18px}
+  h1{font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:clamp(34px,5.2vw,62px);line-height:1.02;letter-spacing:-.01em}
+  h1 .hl{color:var(--blue)}
+  .lede{font-size:18px;color:var(--ink-soft);max-width:34em;margin:22px 0 28px}
+  .ctas{display:flex;flex-wrap:wrap;gap:12px}
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 20px;border-radius:6px;font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:14px;letter-spacing:.06em;text-decoration:none;border:1px solid transparent;transition:transform .15s ease,box-shadow .15s ease}
+  .btn.primary{background:var(--blue);color:var(--on-blue);box-shadow:3px 3px 0 var(--line-dark)}
+  .btn.primary:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--line-dark)}
+  .btn.ghost{border-color:var(--line-dark);background:var(--panel)}
+  .specs{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:26px;font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.08em;color:var(--ink-soft)}
+  .specs span::before{content:"▸ ";color:var(--rec)}
+
+  /* ===== celular com a prévia ===== */
+  .stage{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .phone{width:min(360px,100%);aspect-ratio:9/19.2;background:var(--phone);border-radius:42px;padding:11px;box-shadow:0 30px 60px -20px var(--shadow),6px 6px 0 var(--line-dark);position:relative}
+  .screen{width:100%;height:100%;border-radius:32px;overflow:hidden;background:var(--paper);position:relative;display:flex;flex-direction:column;font-size:13px}
+  .statusbar{background:var(--strip);color:var(--on-strip);display:flex;justify-content:space-between;align-items:center;padding:10px 22px 4px;font-family:"Public Sans",sans-serif;font-size:12px;font-weight:600}
+  .statusbar .icons{display:flex;gap:5px;align-items:center}
+  .statusbar .icons i{display:block;background:var(--on-strip);border-radius:2px}
+  .app-strip{background:var(--strip);color:var(--on-strip);display:flex;align-items:center;gap:8px;padding:4px 14px 7px;font-family:"Courier Prime",monospace;font-size:10px;letter-spacing:.1em}
+  .app-strip .rec{width:6px;height:6px;border-radius:50%;background:rgba(234,241,248,.55)}
+  .app-strip.on .rec{background:#E15A4C;animation:blink 1.2s ease-in-out infinite}
+  .app-strip b{font-weight:700}
+  .app-strip .ver{margin-left:auto;opacity:.75}
+  .app-header{display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-bottom:1px solid var(--line);background:var(--paper)}
+  .app-header .mark{width:28px;height:28px;font-size:14px;box-shadow:2px 2px 0 var(--line-dark)}
+  .app-title{flex:1;min-width:0}
+  .app-title strong{display:block;font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:15px;letter-spacing:.02em;line-height:1.1}
+  .app-title span{font-family:"Courier Prime",monospace;font-size:8.5px;letter-spacing:.16em;color:var(--ink-soft)}
+  .icon-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--ink)}
+  .icon-btn:hover{background:var(--paper-2)}
+  .icon-btn svg{width:20px;height:20px}
+  .app-body{flex:1;overflow-y:auto;padding:12px 12px 18px;display:flex;flex-direction:column;gap:10px;scrollbar-width:none}
+  .app-body::-webkit-scrollbar{display:none}
+
+  .panel{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:3px 3px 0 color-mix(in srgb,var(--line-dark) 55%,transparent)}
+  .vf{position:relative;padding:12px}
+  .vf::before,.vf::after,.vf>.c1,.vf>.c2{content:"";position:absolute;width:12px;height:12px;border:2px solid color-mix(in srgb,var(--ink) 75%,transparent);pointer-events:none}
+  .vf::before{top:0;left:0;border-right:0;border-bottom:0}.vf::after{top:0;right:0;border-left:0;border-bottom:0}
+  .vf>.c1{bottom:0;left:0;border-right:0;border-top:0}.vf>.c2{bottom:0;right:0;border-left:0;border-top:0}
+  .label{font-family:"Courier Prime",monospace;font-size:9.5px;letter-spacing:.12em;color:var(--ink-soft);font-weight:700}
+  .row{display:flex;align-items:center;gap:8px}
+  .spacer{flex:1}
+  .detected{font-family:"Courier Prime",monospace;font-size:9.5px;letter-spacing:.12em;color:var(--blue);font-weight:700}
+  .field{margin-top:7px;display:flex;align-items:center;gap:6px;border:1px solid var(--line-dark);border-radius:6px;background:var(--paper);padding:0 4px 0 10px;height:44px;transition:border-color .15s}
+  .field:focus-within{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+  .field svg{width:18px;height:18px;color:var(--ink-soft);flex:none}
+  .field input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;outline:none}
+  .field input::placeholder{color:var(--ink-soft);opacity:.85}
+  .field .icon-btn{width:32px;height:32px;color:var(--blue)}
+  .field.shake{animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+  .seg{display:grid;grid-template-columns:1fr 1fr;margin-top:10px;border:1px solid var(--line-dark);border-radius:999px;overflow:hidden}
+  .seg button{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 6px;font-size:12px;font-weight:600}
+  .seg button+button{border-left:1px solid var(--line-dark)}
+  .seg button[aria-pressed="true"]{background:color-mix(in srgb,var(--blue) 18%,var(--panel));color:var(--ink)}
+  .seg svg{width:15px;height:15px}
+  .quality{display:flex;align-items:center;gap:6px;margin-top:9px;overflow-x:auto;scrollbar-width:none}
+  .chip{border:1px solid var(--line-dark);border-radius:8px;padding:5px 9px;font-size:11.5px;font-weight:600;white-space:nowrap;background:transparent}
+  .chip[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:var(--on-blue)}
+  .go{margin-top:12px;width:100%;height:46px;border-radius:6px;background:var(--blue);color:var(--on-blue);display:flex;align-items:center;justify-content:center;gap:8px;font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:13px;letter-spacing:.08em}
+  .go:disabled{background:color-mix(in srgb,var(--ink) 12%,transparent);color:color-mix(in srgb,var(--ink) 40%,transparent);cursor:not-allowed}
+  .go svg{width:18px;height:18px}
+  .tip{margin-top:8px;font-size:10.5px;color:var(--ink-soft)}
+  .engine{display:flex;align-items:center;gap:7px;padding:0 3px;font-family:"Courier Prime",monospace;font-size:9.5px;letter-spacing:.1em;color:var(--ink-soft)}
+  .engine i{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
+  .section{display:flex;align-items:center;gap:8px;margin-top:4px}
+  .section .line{flex:1;height:1px;background:var(--line)}
+  .text-btn{color:var(--blue);font-size:11px;font-weight:600;padding:4px 6px;border-radius:4px}
+  .empty{position:relative;padding:20px 16px;text-align:center}
+  .empty::before,.empty::after,.empty>.c1,.empty>.c2{content:"";position:absolute;width:10px;height:10px;border:1.5px solid var(--line-dark)}
+  .empty::before{top:0;left:0;border-right:0;border-bottom:0}.empty::after{top:0;right:0;border-left:0;border-bottom:0}
+  .empty>.c1{bottom:0;left:0;border-right:0;border-top:0}.empty>.c2{bottom:0;right:0;border-left:0;border-top:0}
+  .empty p{font-size:11px;color:var(--ink-soft);margin-top:7px}
+
+  .task{padding:10px}
+  .task-top{display:flex;gap:9px;align-items:flex-start}
+  .thumb{width:78px;height:48px;border-radius:4px;flex:none;position:relative;overflow:hidden;background:var(--paper-2)}
+  .thumb .art{position:absolute;inset:0}
+  .thumb .badge{position:absolute;left:3px;bottom:3px;background:rgba(0,0,0,.65);color:#fff;font-family:"Courier Prime",monospace;font-size:7.5px;font-weight:700;padding:1px 3px;border-radius:2px;letter-spacing:.06em}
+  .task-meta{flex:1;min-width:0}
+  .task-title{font-family:"Archivo",sans-serif;font-weight:600;font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .task-sub{font-family:"Courier Prime",monospace;font-size:8.5px;letter-spacing:.08em;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .task .icon-btn{width:28px;height:28px;color:var(--ink-soft)}
+  .task .icon-btn svg{width:16px;height:16px}
+  .status{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:"Courier Prime",monospace;font-size:8.8px;letter-spacing:.08em}
+  .status .stage{color:var(--blue);font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .status .nums{color:var(--ink-soft);white-space:nowrap}
+  .bar{margin-top:6px;height:5px;border-radius:3px;background:var(--line);overflow:hidden;position:relative}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--blue);border-radius:3px;transition:width .25s linear}
+  .bar.indet i{width:35% !important;animation:indet 1.1s ease-in-out infinite}
+  @keyframes indet{0%{left:-35%}100%{left:100%}}
+  .saved{display:flex;align-items:center;gap:5px;margin-top:8px;color:var(--green);font-family:"Courier Prime",monospace;font-size:8.6px;letter-spacing:.08em;white-space:nowrap;overflow:hidden}
+  .saved svg{width:13px;height:13px;flex:none}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+  .actions button{height:32px;border-radius:6px;font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px}
+  .actions .fill{background:var(--blue);color:var(--on-blue)}
+  .actions .out{border:1px solid var(--line-dark)}
+  .actions svg{width:14px;height:14px}
+  .canceled{display:flex;align-items:center;margin-top:8px;font-family:"Courier Prime",monospace;font-size:9px;letter-spacing:.1em;color:var(--ink-soft);font-weight:700}
+
+  .toast{position:absolute;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:var(--paper);font-size:11.5px;padding:9px 14px;border-radius:6px;opacity:0;transition:all .25s;pointer-events:none;width:max-content;max-width:86%;text-align:center}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  /* tela de ajustes */
+  .settings{display:none;flex-direction:column;gap:14px}
+  .screen.on-settings .home{display:none}
+  .screen.on-settings .settings{display:flex}
+  .set-panel{padding:12px}
+  .set-panel p{font-size:11.5px;line-height:1.45}
+  .set-panel .small{font-size:10.5px;color:var(--ink-soft)}
+  .pill-btn{margin-top:9px;display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:var(--on-blue);font-size:11.5px;font-weight:600;border-radius:6px;padding:8px 12px}
+  .switch-row{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .switch-row div{flex:1}
+  .switch-row strong{display:block;font-size:11.5px}
+  .switch-row span{font-size:10px;color:var(--ink-soft);line-height:1.35;display:block}
+  .switch{width:36px;height:20px;border-radius:999px;background:var(--line-dark);position:relative;flex:none;transition:background .2s}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--paper);transition:transform .2s}
+  .switch[aria-checked="true"]{background:var(--blue)}
+  .switch[aria-checked="true"]::after{transform:translateX(16px);background:#fff}
+  .ver-big{font-family:"Archivo",sans-serif;font-weight:700;font-size:14px}
+
+  .stage-note{font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.08em;color:var(--ink-soft);text-align:center;max-width:360px}
+  .samples{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+  .samples button{border:1px solid var(--line-dark);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600}
+  .samples button:hover{border-color:var(--blue);color:var(--blue)}
+
+  /* ===== seções ===== */
+  section.block{padding:72px 0;border-top:1px solid var(--line)}
+  .kicker{font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.16em;color:var(--ink-soft);margin-bottom:12px}
+  h2{font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:800;font-size:clamp(26px,3.4vw,38px);line-height:1.08;margin-bottom:28px}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:22px;box-shadow:3px 3px 0 color-mix(in srgb,var(--line-dark) 55%,transparent)}
+  .card .num{font-family:"Courier Prime",monospace;font-size:12px;color:var(--rec);letter-spacing:.1em}
+  .card h3{font-family:"Archivo",sans-serif;font-weight:700;font-size:18px;margin:8px 0 6px}
+  .card p{color:var(--ink-soft);font-size:15px}
+  .shots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}
+  .shot{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .shot .bezel{background:var(--phone);border-radius:22px;padding:6px;width:100%;box-shadow:4px 4px 0 var(--line-dark)}
+  .shot img{display:block;width:100%;border-radius:16px;aspect-ratio:1080/2400;object-fit:cover;background:var(--paper-2)}
+  .shot figcaption{font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.12em;color:var(--ink-soft)}
+  .install{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+  .steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:16px}
+  .steps li{counter-increment:s;display:flex;gap:14px;align-items:flex-start;font-size:16px}
+  .steps li::before{content:counter(s,decimal-leading-zero);font-family:"Courier Prime",monospace;color:var(--rec);font-size:13px;padding-top:3px}
+  .dl{display:flex;flex-direction:column;gap:12px}
+  .dl a{display:flex;align-items:center;gap:14px;text-decoration:none;padding:16px 18px;border-radius:6px;border:1px solid var(--line);background:var(--panel);box-shadow:3px 3px 0 color-mix(in srgb,var(--line-dark) 55%,transparent)}
+  .dl a.rec1{border-color:var(--blue)}
+  .dl a strong{display:block;font-family:"Archivo",sans-serif;font-weight:700;font-size:16px}
+  .dl a span{font-size:13px;color:var(--ink-soft)}
+  .dl a .arrow{margin-left:auto;font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.1em;color:var(--blue);white-space:nowrap}
+  .tech{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .tech div{border-left:2px solid var(--rec);padding-left:14px}
+  .tech strong{font-family:"Archivo",sans-serif;font-weight:700;display:block}
+  .tech span{font-size:14px;color:var(--ink-soft)}
+  footer{border-top:1px solid var(--line);padding:28px 0 40px;font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.06em;color:var(--ink-soft)}
+  footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+  @media (max-width:980px){
+    .hero{grid-template-columns:1fr;padding-top:48px}
+    .grid{grid-template-columns:1fr 1fr}
+    .shots{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .install{grid-template-columns:1fr}
+    .tech{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:680px){
+    .topbar{padding:8px 16px}.topbar .hide-sm{display:none}
+    nav{padding:14px 16px}.navlinks a{display:none}
+    .wrap{padding:0 16px}
+    .hero{padding:40px 16px 56px;gap:36px}
+    .frame{display:none}
+    .lede{font-size:16px}
+    .grid,.tech{grid-template-columns:1fr}
+    .shots{grid-template-columns:repeat(2,minmax(0,1fr))}
+    section.block{padding:56px 0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="left"><span><span class="dot"></span>REC</span><span>JOOHN / DOWNLOADER</span><span class="hide-sm">ANDROID 7.0+</span></div>
+  <div>v1.0.0</div>
+</div>
+
+<nav>
+  <a class="brand" href="#topo" aria-label="Baixa Vídeos, início">
+    <span class="mark">J</span>
+    <span class="wordmark">BAIXA VÍDEOS<small>APP ANDROID · JOOHN</small></span>
+  </a>
+  <div class="navlinks">
+    <a href="#previa">Prévia</a>
+    <a href="#recursos">Recursos</a>
+    <a href="#telas">Telas</a>
+    <a href="#baixar">Baixar</a>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Alternar tema claro e escuro">TEMA</button>
+  </div>
+</nav>
+
+<header class="hero" id="topo">
+  <span class="frame tl"></span><span class="frame tr"></span><span class="frame bl"></span><span class="frame br"></span>
+  <div>
+    <div class="eyebrow"><span class="dot"></span>APP ANDROID · GRÁTIS · SEM ANÚNCIOS</div>
+    <h1>Baixe vídeos do <span class="hl">Instagram</span>, <span class="hl">YouTube</span> e <span class="hl">TikTok</span>.</h1>
+    <p class="lede">Cole o link ou toque em Compartilhar no app do vídeo. O Baixa Vídeos salva em MP4 ou MP3, direto na galeria, mesmo com a tela desligada.</p>
+    <div class="ctas">
+      <a class="btn primary" href="apk/BaixaVideos-1.0.0-arm64-v8a.apk" download>⤓ BAIXAR APK</a>
+      <a class="btn ghost" href="#previa">TESTAR A PRÉVIA</a>
+    </div>
+    <div class="specs"><span>MP4 ATÉ 4K</span><span>ÁUDIO MP3</span><span>FILA EM SEGUNDO PLANO</span><span>MOTOR yt-dlp ATUALIZADO</span></div>
+  </div>
+
+  <div class="stage" id="previa">
+    <div class="phone" aria-label="Prévia interativa do app">
+      <div class="screen" id="screen">
+        <div class="statusbar"><span id="clock">09:41</span><span class="icons"><i style="width:14px;height:8px"></i><i style="width:10px;height:8px"></i><i style="width:18px;height:9px;border-radius:2px"></i></span></div>
+        <div class="app-strip" id="strip"><span class="rec"></span><b id="stripState">STBY</b><span>JOOHN / DOWNLOADER</span><span class="ver">v1.0.0</span></div>
+
+        <div class="app-header" id="headerHome">
+          <span class="mark">J</span>
+          <div class="app-title"><strong>BAIXA VÍDEOS</strong><span>INSTAGRAM · YOUTUBE · TIKTOK</span></div>
+          <button class="icon-btn" id="openSettings" type="button" aria-label="Ajustes">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.6c-.6.3-1.2.6-1.7 1l-2.5-1-2 3.5L4.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+          </button>
+        </div>
+        <div class="app-header" id="headerSettings" hidden>
+          <button class="icon-btn" id="closeSettings" type="button" aria-label="Voltar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+          </button>
+          <div class="app-title"><strong>AJUSTES</strong><span>BAIXA VÍDEOS · JOOHN</span></div>
+        </div>
+
+        <div class="app-body">
+          <div class="home">
+            <div class="panel"><div class="vf"><span class="c1"></span><span class="c2"></span>
+              <div class="row"><span class="label">LINK DO VÍDEO</span><span class="spacer"></span><span class="detected" id="detected"></span></div>
+              <div class="field" id="field">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+                <input id="url" type="url" inputmode="url" autocomplete="off" placeholder="Cole o link aqui" aria-label="Link do vídeo">
+                <button class="icon-btn" id="fieldBtn" type="button" aria-label="Colar link">
+                  <svg id="icoPaste" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/></svg>
+                  <svg id="icoClear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+              </div>
+              <div class="seg" role="group" aria-label="Formato">
+                <button type="button" data-mode="video" aria-pressed="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5h12a2 2 0 0 1 2 2v1.5l3-2v11l-3-2V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>Vídeo MP4</button>
+                <button type="button" data-mode="audio" aria-pressed="false"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4l9-2v13.5a3 3 0 1 1-2-2.8V6.2l-5 1.1V18a3 3 0 1 1-2-2.8z"/></svg>Áudio MP3</button>
+              </div>
+              <div class="quality" id="quality" role="group" aria-label="Qualidade">
+                <span class="label">QUALIDADE</span>
+                <button class="chip" type="button" data-q="Máxima" aria-pressed="false">Máxima</button>
+                <button class="chip" type="button" data-q="1080p" aria-pressed="true">1080p</button>
+                <button class="chip" type="button" data-q="720p" aria-pressed="false">720p</button>
+                <button class="chip" type="button" data-q="480p" aria-pressed="false">480p</button>
+              </div>
+              <button class="go" id="go" type="button" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg>
+                <span id="goText">BAIXAR VÍDEO</span>
+              </button>
+              <p class="tip" id="tip">Dica: no app do vídeo, toque em Compartilhar e escolha Baixa Vídeos.</p>
+            </div></div>
+
+            <div class="engine" style="margin-top:10px"><i></i>MOTOR yt-dlp 2026.08.19 · PRONTO</div>
+            <div class="section" style="margin-top:10px"><span class="label">DOWNLOADS</span><span class="line"></span><button class="text-btn" id="clear" type="button" hidden>Limpar lista</button></div>
+            <div id="list" style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+              <div class="empty" id="empty"><span class="c1"></span><span class="c2"></span>
+                <span class="label">NENHUM DOWNLOAD AINDA</span>
+                <p>Copie o link de um vídeo e cole acima. Ou toque em Compartilhar no app do vídeo e escolha Baixa Vídeos.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings">
+            <div><span class="label">INSTAGRAM</span>
+              <div class="panel set-panel" style="margin-top:7px">
+                <p>Muitos vídeos do Instagram só baixam com login. Você entra pelo site oficial, aqui dentro do app, e o acesso fica salvo só no aparelho.</p>
+                <button class="pill-btn" type="button" data-toast="Na prévia o login fica desativado.">Entrar no Instagram</button>
+              </div>
+            </div>
+            <div><span class="label">MOTOR DE DOWNLOAD</span>
+              <div class="panel set-panel" style="margin-top:7px">
+                <div class="ver-big">yt-dlp 2026.08.19</div>
+                <div class="label" style="font-weight:400;margin-top:2px">JÁ ESTÁ NA VERSÃO MAIS NOVA</div>
+                <button class="pill-btn" type="button" data-toast="Motor atualizado: yt-dlp 2026.08.19">Atualizar agora</button>
+                <div class="switch-row"><div><strong>Atualizar automaticamente</strong><span>Procura versão nova ao abrir o app.</span></div><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Atualizar automaticamente"></button></div>
+                <div class="switch-row"><div><strong>Versão nightly</strong><span>Correções no mesmo dia, se algum site parar.</span></div><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Versão nightly"></button></div>
+              </div>
+            </div>
+            <div><span class="label">COMPARTILHAR</span>
+              <div class="panel set-panel" style="margin-top:7px">
+                <div class="switch-row"><div><strong>Baixar ao compartilhar</strong><span>O download começa sozinho ao receber um link.</span></div><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Baixar ao compartilhar"></button></div>
+              </div>
+            </div>
+            <div><span class="label">ARQUIVOS</span>
+              <div class="panel set-panel" style="margin-top:7px"><p>Tudo fica em Download/BaixaVideos e aparece na galeria e no app de música.</p></div>
+            </div>
+            <div><span class="label">SOBRE</span>
+              <div class="panel set-panel" style="margin-top:7px"><p><strong>Baixa Vídeos 1.0.0 · JOOHN</strong></p><p class="small" style="margin-top:4px">Feito com yt-dlp, youtubedl-android, FFmpeg, Python e QuickJS.</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="samples" aria-label="Links de exemplo">
+      <button type="button" data-sample="https://www.instagram.com/reel/PreviaJoohn01/">Exemplo Instagram</button>
+      <button type="button" data-sample="https://youtu.be/PreviaJoohn02">Exemplo YouTube</button>
+      <button type="button" data-sample="https://www.tiktok.com/@joohn/video/7000000000000000003">Exemplo TikTok</button>
+    </div>
+    <p class="stage-note">PRÉVIA INTERATIVA · SIMULAÇÃO DA INTERFACE, NÃO BAIXA ARQUIVOS DE VERDADE</p>
+  </div>
+</header>
+
+<section class="block" id="recursos">
+  <div class="wrap">
+    <div class="kicker">RECURSOS</div>
+    <h2>Tudo o que precisa, nada de anúncio.</h2>
+    <div class="grid">
+      <div class="card"><div class="num">01</div><h3>Cole ou compartilhe</h3><p>Cole o link no app ou use o Compartilhar do Instagram, YouTube e TikTok. O link é reconhecido sozinho.</p></div>
+      <div class="card"><div class="num">02</div><h3>Vídeo ou MP3</h3><p>MP4 em Máxima, 1080p, 720p ou 480p, com prioridade para o formato que toca em qualquer celular. Ou só o áudio em MP3.</p></div>
+      <div class="card"><div class="num">03</div><h3>Em segundo plano</h3><p>Fila com até dois downloads ao mesmo tempo, notificação de progresso, cancelamento e histórico.</p></div>
+      <div class="card"><div class="num">04</div><h3>Motor sempre atualizado</h3><p>O yt-dlp se atualiza sozinho. É isso que mantém os sites funcionando quando eles mudam.</p></div>
+      <div class="card"><div class="num">05</div><h3>Instagram com login</h3><p>Para vídeos que exigem conta, entre pelo site oficial dentro do app. O acesso fica salvo só no aparelho.</p></div>
+      <div class="card"><div class="num">06</div><h3>Direto na galeria</h3><p>Arquivos em Download/BaixaVideos, prontos para abrir, compartilhar no WhatsApp ou editar.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="telas">
+  <div class="wrap">
+    <div class="kicker">TELAS REAIS · EMULADOR ANDROID 14</div>
+    <h2>Capturas do app rodando de verdade.</h2>
+    <div class="shots" id="shots">
+      <figure class="shot"><div class="bezel"><img src="docs/screenshots/01_inicio.png" alt="Tela inicial do Baixa Vídeos" loading="lazy"></div><figcaption>INÍCIO</figcaption></figure>
+      <figure class="shot"><div class="bezel"><img src="docs/screenshots/02_baixando.png" alt="Download em andamento" loading="lazy"></div><figcaption>BAIXANDO</figcaption></figure>
+      <figure class="shot"><div class="bezel"><img src="docs/screenshots/03_concluido.png" alt="Download concluído" loading="lazy"></div><figcaption>CONCLUÍDO</figcaption></figure>
+      <figure class="shot"><div class="bezel"><img src="docs/screenshots/04_ajustes.png" alt="Tela de ajustes" loading="lazy"></div><figcaption>AJUSTES</figcaption></figure>
+      <figure class="shot"><div class="bezel"><img src="docs/screenshots/05_inicio_escuro.png" alt="Tela inicial no tema escuro" loading="lazy"></div><figcaption>TEMA ESCURO</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="baixar">
+  <div class="wrap install">
+    <div>
+      <div class="kicker">INSTALAR</div>
+      <h2>Três passos e pronto.</h2>
+      <ol class="steps">
+        <li>Baixe o APK no celular. O arm64-v8a serve em quase todos os aparelhos.</li>
+        <li>Abra o arquivo e permita "instalar apps desconhecidos" quando o Android pedir.</li>
+        <li>Na primeira abertura o app prepara o motor por alguns segundos. Depois é só colar o link.</li>
+      </ol>
+    </div>
+    <div class="dl">
+      <a class="rec1" href="apk/BaixaVideos-1.0.0-arm64-v8a.apk" download><span><strong>arm64-v8a</strong><span>Recomendado · 68,6 MB · Android 7.0+</span></span><span class="arrow">⤓ BAIXAR</span></a>
+      <a href="apk/BaixaVideos-1.0.0-armeabi-v7a.apk" download><span><strong>armeabi-v7a</strong><span>Celulares antigos ou Android Go · 62 MB</span></span><span class="arrow">⤓ BAIXAR</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="kicker">COMO FUNCIONA</div>
+    <h2>Um motor completo dentro do celular.</h2>
+    <div class="tech">
+      <div><strong>yt-dlp</strong><span>Extrai o vídeo de centenas de sites e escolhe o melhor formato.</span></div>
+      <div><strong>FFmpeg</strong><span>Junta vídeo e áudio e converte para MP3.</span></div>
+      <div><strong>Python + QuickJS</strong><span>Rodam o yt-dlp e resolvem os desafios do YouTube no aparelho.</span></div>
+      <div><strong>Kotlin + Compose</strong><span>Interface nativa, tema claro e escuro, serviço em segundo plano.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>JOOHN · BAIXA VÍDEOS v1.0.0 · GPL-3.0</span>
+    <span>Baixe só o que você tem direito de usar.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var root = document.documentElement;
+
+  // Tema: segue o sistema, com troca manual guardada neste navegador.
+  try { var saved = localStorage.getItem("bv-theme"); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("bv-theme", next); } catch (e) {}
+  });
+
+  // Capturas reais: some com a seção se as imagens ainda não existirem.
+  var shots = document.querySelectorAll("#shots img");
+  var failed = 0;
+  shots.forEach(function (img) {
+    img.addEventListener("error", function () {
+      img.closest(".shot").style.display = "none";
+      failed++;
+      if (failed === shots.length) document.getElementById("telas").style.display = "none";
+    });
+  });
+
+  // ===== Prévia interativa =====
+  var $ = function (id) { return document.getElementById(id); };
+  var screen = $("screen"), url = $("url"), go = $("go"), goText = $("goText"), detected = $("detected");
+  var field = $("field"), icoPaste = $("icoPaste"), icoClear = $("icoClear"), list = $("list"), empty = $("empty");
+  var strip = $("strip"), stripState = $("stripState"), clearBtn = $("clear"), tip = $("tip");
+  var state = { mode: "video", quality: "1080p", tasks: [] };
+
+  var now = new Date();
+  $("clock").textContent = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+
+  var PLATFORMS = {
+    youtube: { label: "YOUTUBE", badge: "YT", title: "Making of: ensaio gravado em fita VHS", user: "joohnvictor", art: "linear-gradient(135deg,#1B4F8C,#C0392B)" },
+    instagram: { label: "INSTAGRAM", badge: "IG", title: "Reel de bastidores do portfólio", user: "joohn", art: "linear-gradient(135deg,#B98A2E,#C0392B 60%,#1B4F8C)" },
+    tiktok: { label: "TIKTOK", badge: "TT", title: "Transição de câmera em 3 passos", user: "joohn", art: "linear-gradient(135deg,#22221E,#2E6DB4 70%,#E15A4C)" },
+    other: { label: "LINK", badge: "WEB", title: "Vídeo da web", user: null, art: "linear-gradient(135deg,#3E6B5E,#1B4F8C)" }
+  };
+
+  function platformOf(link) {
+    var m = /^https?:\/\/(?:[^@\/?#]*@)?([^\/?#:]+)/i.exec(link || "");
+    if (!m || m[1].indexOf(".") < 0) return null;
+    var host = m[1].toLowerCase();
+    function is(d) { return host === d || host.slice(-(d.length + 1)) === "." + d; }
+    if (is("youtube.com") || is("youtu.be")) return "youtube";
+    if (is("instagram.com") || is("instagr.am")) return "instagram";
+    if (is("tiktok.com")) return "tiktok";
+    return "other";
+  }
+  function extractUrl(text) {
+    var m = /https?:\/\/[^\s<>"'`]+/i.exec(text || "");
+    return m ? m[0].replace(/[.,;:!?)\]}]+$/, "") : null;
+  }
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  function refreshInput() {
+    var link = extractUrl(url.value);
+    var p = link ? platformOf(link) : null;
+    detected.textContent = p ? "● " + PLATFORMS[p].label : "";
+    go.disabled = !p;
+    var emptyField = url.value.length === 0;
+    icoPaste.hidden = !emptyField;
+    icoClear.hidden = emptyField;
+    $("fieldBtn").setAttribute("aria-label", emptyField ? "Colar link" : "Limpar");
+    tip.hidden = !emptyField;
+  }
+
+  url.addEventListener("input", refreshInput);
+  url.addEventListener("keydown", function (e) { if (e.key === "Enter") start(); });
+  $("fieldBtn").addEventListener("click", function () {
+    if (url.value) { url.value = ""; refreshInput(); url.focus(); return; }
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function (text) {
+        if (text) { url.value = extractUrl(text) || text.trim(); refreshInput(); }
+        else toast("A área de transferência está vazia.");
+      }).catch(function () { toast("Use um dos links de exemplo abaixo do celular."); });
+    } else {
+      toast("Use um dos links de exemplo abaixo do celular.");
+    }
+  });
+  document.querySelectorAll("[data-sample]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      screen.classList.remove("on-settings"); showHeader(false);
+      url.value = b.getAttribute("data-sample"); refreshInput();
+    });
+  });
+
+  document.querySelectorAll(".seg button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.mode = b.getAttribute("data-mode");
+      document.querySelectorAll(".seg button").forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+      $("quality").style.display = state.mode === "video" ? "flex" : "none";
+      goText.textContent = state.mode === "video" ? "BAIXAR VÍDEO" : "BAIXAR ÁUDIO";
+    });
+  });
+  document.querySelectorAll(".chip").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.quality = b.getAttribute("data-q");
+      document.querySelectorAll(".chip").forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+    });
+  });
+  go.addEventListener("click", start);
+
+  function showHeader(settings) {
+    $("headerHome").hidden = settings;
+    $("headerSettings").hidden = !settings;
+  }
+  $("openSettings").addEventListener("click", function () { screen.classList.add("on-settings"); showHeader(true); });
+  $("closeSettings").addEventListener("click", function () { screen.classList.remove("on-settings"); showHeader(false); });
+  document.querySelectorAll(".switch").forEach(function (s) {
+    s.addEventListener("click", function () { s.setAttribute("aria-checked", String(s.getAttribute("aria-checked") !== "true")); });
+  });
+  document.querySelectorAll("[data-toast]").forEach(function (b) {
+    b.addEventListener("click", function () { toast(b.getAttribute("data-toast")); });
+  });
+  clearBtn.addEventListener("click", function () {
+    state.tasks = state.tasks.filter(function (t) { return t.active; });
+    render();
+  });
+
+  var ICON = {
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.4 14.2L6.3 12l1.4-1.4 2.9 2.8 5.7-5.6 1.4 1.4z"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7l-6.7 3.4a3 3 0 1 0 0 3.2L15 17a3 3 0 1 0 3-1z"/></svg>'
+  };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function render() {
+    var active = state.tasks.some(function (t) { return t.active; });
+    strip.classList.toggle("on", active);
+    stripState.textContent = active ? "REC" : "STBY";
+    clearBtn.hidden = !state.tasks.some(function (t) { return !t.active; });
+    empty.style.display = state.tasks.length ? "none" : "block";
+    list.querySelectorAll(".task").forEach(function (n) { n.remove(); });
+    state.tasks.forEach(function (t) {
+      var p = PLATFORMS[t.platform];
+      var meta = [p.label];
+      if (t.known && p.user) meta.push("@" + p.user.toUpperCase());
+      meta.push(t.mode === "audio" ? "MP3" : t.quality.toUpperCase());
+      var html = '<div class="task-top">' +
+        '<div class="thumb"><div class="art" style="background:' + (t.known ? p.art : "var(--paper-2)") + '"></div><span class="badge">' + p.badge + '</span></div>' +
+        '<div class="task-meta"><div class="task-title">' + esc(t.known ? p.title : t.host) + '</div><div class="task-sub">' + meta.join(" · ") + '</div></div>' +
+        '<button class="icon-btn" type="button" data-act="' + (t.active ? "cancel" : "more") + '" aria-label="' + (t.active ? "Cancelar download" : "Mais opções") + '">' + (t.active ? ICON.close : ICON.more) + '</button></div>';
+      if (t.status === "done") {
+        html += '<div class="saved">' + ICON.check + 'SALVO · ' + t.size + ' · DOWNLOAD/BAIXAVIDEOS</div>' +
+          '<div class="actions"><button class="fill" type="button" data-act="open">' + ICON.play + 'Abrir</button><button class="out" type="button" data-act="share">' + ICON.share + 'Compartilhar</button></div>';
+      } else if (t.status === "canceled") {
+        html += '<div class="canceled">CANCELADO<span class="spacer"></span><button class="text-btn" type="button" data-act="retry">Baixar de novo</button></div>';
+      } else {
+        var nums = [];
+        if (t.progress != null) nums.push(Math.round(t.progress * 100) + "%");
+        if (t.speed) nums.push(t.speed);
+        if (t.eta != null) nums.push("ETA 00:" + String(t.eta).padStart(2, "0"));
+        html += '<div class="status"><span class="stage">' + t.stage.toUpperCase() + '</span><span class="nums">' + nums.join(" · ") + '</span></div>' +
+          '<div class="bar' + (t.progress == null ? " indet" : "") + '"><i style="width:' + (t.progress == null ? 0 : t.progress * 100) + '%"></i></div>';
+      }
+      var node = document.createElement("div");
+      node.className = "panel task";
+      node.innerHTML = html;
+      node.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-act]");
+        if (!b) return;
+        var act = b.getAttribute("data-act");
+        if (act === "cancel") { t.active = false; t.status = "canceled"; clearTimeout(t.timer); render(); }
+        else if (act === "retry") { state.tasks.splice(state.tasks.indexOf(t), 1); begin(t.link, t.mode, t.quality); }
+        else if (act === "more") { toast("No app: copiar link, abrir original, remover ou apagar."); }
+        else if (act === "open") { toast("Na prévia não há arquivo de verdade."); }
+        else if (act === "share") { toast("No app abre o Compartilhar do Android."); }
+      });
+      list.appendChild(node);
+    });
+  }
+
+  function start() {
+    var link = extractUrl(url.value);
+    if (!link || !platformOf(link)) {
+      field.classList.remove("shake"); void field.offsetWidth; field.classList.add("shake");
+      toast("Cole um link válido, começando com https://");
+      return;
+    }
+    url.value = ""; refreshInput(); url.blur();
+    begin(link, state.mode, state.quality);
+  }
+
+  // Sequência de etapas igual à do app (texto vindo do yt-dlp traduzido).
+  function begin(link, mode, quality) {
+    var platform = platformOf(link);
+    var host = (/^https?:\/\/([^\/?#:]+)/i.exec(link) || [0, link])[1];
+    var t = { link: link, platform: platform, host: host, mode: mode, quality: quality, active: true,
+      status: "active", stage: "Na fila", progress: null, speed: null, eta: null, known: false, size: "" };
+    state.tasks.unshift(t);
+    render();
+    var separate = mode === "video" && platform === "youtube";
+    var mb = mode === "audio" ? 4.6 : ({ "Máxima": 96.2, "1080p": 48.7, "720p": 24.8, "480p": 13.1 })[quality];
+    if (platform !== "youtube" && mode === "video") mb = Math.min(mb, 18.4);
+    var steps = [
+      [450, function () { t.stage = "Preparando o motor"; }],
+      [650, function () { t.stage = "Procurando o vídeo"; }],
+      [900, function () { t.known = true; t.stage = "Baixando"; t.progress = 0; }]
+    ];
+    function download(label, from, to, ms) {
+      var n = 12;
+      for (var i = 1; i <= n; i++) {
+        (function (i) {
+          steps.push([ms / n, function () {
+            t.stage = label;
+            t.progress = from + (to - from) * (i / n);
+            t.speed = (3.1 + Math.random() * 2.2).toFixed(1).replace(".", ",") + " MB/s";
+            t.eta = Math.max(0, Math.round((1 - i / n) * ms / 1000));
+          }]);
+        })(i);
+      }
+    }
+    if (mode === "audio") {
+      download("Baixando áudio", 0, 1, 2200);
+      steps.push([200, function () { t.stage = "Convertendo para MP3"; t.progress = null; t.speed = null; t.eta = null; }]);
+      steps.push([1300, function () { t.stage = "Gravando informações"; }]);
+    } else if (separate) {
+      download("Baixando vídeo", 0, 0.85, 3400);
+      download("Baixando áudio", 0.85, 1, 900);
+      steps.push([200, function () { t.stage = "Juntando vídeo e áudio"; t.progress = null; t.speed = null; t.eta = null; }]);
+      steps.push([1100, function () { t.stage = "Finalizando"; }]);
+    } else {
+      download("Baixando", 0, 1, 2600);
+      steps.push([200, function () { t.stage = "Finalizando"; t.progress = null; t.speed = null; t.eta = null; }]);
+    }
+    steps.push([500, function () { t.stage = "Salvando em Download/BaixaVideos"; }]);
+    steps.push([650, function () {
+      t.active = false; t.status = "done"; t.progress = 1;
+      t.size = mb.toFixed(1).replace(".", ",") + " MB";
+      toast("Download concluído");
+    }]);
+    var k = 0;
+    (function next() {
+      if (!t.active || k >= steps.length) return;
+      var s = steps[k++];
+      t.timer = setTimeout(function () {
+        if (!t.active && t.status === "canceled") return;
+        s[1](); render(); next();
+      }, s[0]);
+    })();
+  }
+
+  refreshInput();
+  render();
+})();
+</script>
+</body>
+</html>
