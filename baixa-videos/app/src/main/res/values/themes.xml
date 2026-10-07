@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Só cobre a janela antes do Compose desenhar; as cores do app estão em ui/theme/Theme.kt. -->
+    <style name="Theme.BaixaVideos" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:colorAccent">@color/brand_blue</item>
+    </style>
+</resources>

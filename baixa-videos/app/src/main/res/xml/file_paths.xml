@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usado só no Android 9 ou anterior, quando o scanner de mídia não devolve um endereço. -->
+<paths>
+    <external-path name="external" path="." />
+    <external-files-path name="external_files" path="." />
+    <files-path name="files" path="." />
+</paths>

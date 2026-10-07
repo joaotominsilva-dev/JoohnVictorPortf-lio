@@ -1,0 +1,154 @@
+name: Baixa Vídeos (Android)
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'baixa-videos/**'
+      - '.github/workflows/baixa-videos.yml'
+  pull_request:
+    paths:
+      - 'baixa-videos/**'
+      - '.github/workflows/baixa-videos.yml'
+  workflow_dispatch:
+    inputs:
+      salvar_apk:
+        description: 'Salvar os APKs (arm64-v8a e armeabi-v7a) em baixa-videos/apk nesta branch'
+        type: boolean
+        default: false
+
+concurrency:
+  group: baixa-videos-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: baixa-videos
+
+jobs:
+  build:
+    name: Compilar APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Compilar release (um APK por arquitetura)
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Organizar APKs
+        id: apks
+        run: |
+          version=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          mkdir -p dist
+          for f in app/build/outputs/apk/release/app-*-release.apk; do
+            abi=$(basename "$f" | sed -E 's/^app-(.+)-release\.apk$/\1/')
+            cp "$f" "dist/BaixaVideos-$version-$abi.apk"
+          done
+          ls -la dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: BaixaVideos-arm64-v8a
+          path: baixa-videos/dist/*-arm64-v8a.apk
+          compression-level: 0
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: BaixaVideos-armeabi-v7a
+          path: baixa-videos/dist/*-armeabi-v7a.apk
+          compression-level: 0
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: BaixaVideos-x86
+          path: |
+            baixa-videos/dist/*-x86.apk
+            baixa-videos/dist/*-x86_64.apk
+          compression-level: 0
+
+      - name: Salvar APKs na branch
+        if: github.event_name == 'workflow_dispatch' && inputs.salvar_apk
+        env:
+          VERSION: ${{ steps.apks.outputs.version }}
+        run: |
+          mkdir -p apk
+          rm -f apk/*.apk
+          cp dist/*-arm64-v8a.apk dist/*-armeabi-v7a.apk apk/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apk
+          git commit -m "Baixa Vídeos $VERSION: APKs prontos para instalar"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Publicar release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.apks.outputs.version }}
+        run: |
+          tag="baixa-videos-v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.apk --clobber
+          else
+            gh release create "$tag" dist/*.apk --target "$GITHUB_SHA" --title "Baixa Vídeos $VERSION" \
+              --notes "Instale o APK arm64-v8a (serve em quase todos os celulares). Se não instalar, use o armeabi-v7a."
+          fi
+
+  emulator:
+    name: Teste no emulador
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Liberar KVM
+        working-directory: .
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Compilar app e testes (x86_64)
+        run: ./gradlew --no-daemon --stacktrace assembleDebug assembleDebugAndroidTest -PtargetAbi=x86_64
+
+      - name: Rodar testes no emulador (Android 14)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: baixa-videos
+          script: ./ci/emulator-tests.sh
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: teste-emulador
+          path: |
+            baixa-videos/build/ci
+            baixa-videos/app/build/reports/androidTests
+          if-no-files-found: warn
