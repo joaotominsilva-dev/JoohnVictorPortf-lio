@@ -26,3 +26,6 @@ O preview do painel usa o mesmo renderizador que gera as camadas, entao o que vo
 - A API do ExtendScript do Premiere varia por versao. J/L cut, keyframes e MOGRT usam chamadas que podem exigir ajuste na sua versao; o painel avisa e cai para corte seco quando algo falha.
 - A chave da API fica no armazenamento local do painel.
 - Testes da logica: `node --test tests/core.test.js`.
+
+## Versao
+A versao aparece no cabecalho do painel (passe o mouse para ver a data do build). A cada alteracao rode `node tools/bump.js` antes de empacotar; ele atualiza `js/version.js` e o manifesto.

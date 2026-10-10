@@ -420,6 +420,9 @@
   }
 
   // ---------- inicializacao ----------
+  var V = window.CF_VERSION || { version: '?', build: '' };
+  $('ver').textContent = 'v' + V.version; $('ver').title = 'Build ' + V.build;
+  document.title = 'CaptionFlow v' + V.version;
   st.preset = P.get(settings.presetId);
   fillPresetSel(); buildForm(); wave();
   if (!cs.isHost()) { $('ctxInfo').textContent = 'Modo navegador (sem Premiere)'; }

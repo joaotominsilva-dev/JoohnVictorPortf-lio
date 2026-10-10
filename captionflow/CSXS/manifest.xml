@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.joohn.captionflow" ExtensionBundleVersion="1.0.0" ExtensionBundleName="CaptionFlow"
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.joohn.captionflow" ExtensionBundleVersion="1.0.1" ExtensionBundleName="CaptionFlow"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="com.joohn.captionflow.panel" Version="1.0.0"/>
+    <Extension Id="com.joohn.captionflow.panel" Version="1.0.1"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
