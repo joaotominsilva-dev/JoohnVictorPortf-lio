@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>CaptionFlow</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><span class="dot" id="hostDot" title="Conexao com o Premiere"></span>CaptionFlow</div>
+    <div id="ctxInfo" class="muted">Sem contexto</div>
+    <button id="btnCtx" class="ghost" title="Ler sequencia e clip selecionado">Atualizar</button>
+  </header>
+
+  <section id="previewBox">
+    <canvas id="cv" width="960" height="540"></canvas>
+    <div class="transport">
+      <button id="btnPlay" class="icon" title="Reproduzir preview (Espaco)">&#9654;</button>
+      <input id="seek" type="range" min="0" max="100" step="0.01" value="0">
+      <span id="tcode" class="mono">00:00.00</span>
+    </div>
+    <div class="row wrap tight">
+      <label class="chk"><input type="checkbox" id="syncHead"> Seguir playhead do Premiere</label>
+      <button id="btnFrame" class="ghost small" title="Usa o frame atual da sequencia como fundo do preview">Frame de fundo</button>
+      <button id="btnNoBg" class="ghost small">Limpar fundo</button>
+    </div>
+  </section>
+
+  <nav id="tabs">
+    <button data-tab="trans" class="on">1 Transcrever</button>
+    <button data-tab="cut">2 Cortes</button>
+    <button data-tab="cap">3 Legendas</button>
+    <button data-tab="style">4 Estilo</button>
+    <button data-tab="apply">5 Aplicar</button>
+  </nav>
+
+  <main>
+    <div class="pane on" id="tab-trans">
+      <div class="grid2">
+        <label>Motor
+          <select id="provider"><option value="openai">OpenAI Whisper (API)</option><option value="local">whisper.cpp (local)</option></select>
+        </label>
+        <label>Idioma
+          <select id="language"><option value="pt">Portugues</option><option value="en">Ingles</option><option value="es">Espanhol</option><option value="auto">Automatico</option></select>
+        </label>
+      </div>
+      <div id="openaiBox">
+        <label>Chave da API OpenAI <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off"></label>
+      </div>
+      <div id="localBox" class="hidden">
+        <label>Executavel whisper.cpp (whisper-cli) <input type="text" id="whisperBin" placeholder="/usr/local/bin/whisper-cli"></label>
+        <label>Modelo (.bin) <input type="text" id="whisperModel" placeholder="ggml-small.bin"></label>
+      </div>
+      <details>
+        <summary>Opcoes avancadas</summary>
+        <label>Caminho do ffmpeg <input type="text" id="ffmpegPath" placeholder="vazio = automatico / PATH"></label>
+        <label>Vocabulario / dica de contexto (opcional) <input type="text" id="whisperPrompt" placeholder="nomes proprios, termos tecnicos"></label>
+        <label>Tamanho do trecho enviado (s) <input type="number" id="chunkSec" min="60" max="1200" value="600"></label>
+      </details>
+      <div class="row">
+        <button id="btnTranscribe" class="primary">Transcrever clip selecionado</button>
+      </div>
+      <div class="row wrap">
+        <button id="btnDemo" class="ghost small">Carregar demo</button>
+        <button id="btnImportJson" class="ghost small">Importar JSON</button>
+        <button id="btnExportJson" class="ghost small">Exportar JSON</button>
+        <input type="file" id="fileJson" accept=".json" class="hidden">
+      </div>
+      <div id="transStat" class="muted"></div>
+    </div>
+
+    <div class="pane" id="tab-cut">
+      <canvas id="wave" width="800" height="90"></canvas>
+      <div class="grid2">
+        <label>Limiar (dB) <span id="vThr" class="mono"></span><input type="range" id="thr" min="-70" max="-15" step="1" value="-40"></label>
+        <label>Silencio minimo (s) <span id="vMin" class="mono"></span><input type="range" id="minSil" min="0.1" max="2" step="0.05" value="0.4"></label>
+        <label>Padding (s) <span id="vPad" class="mono"></span><input type="range" id="pad" min="0" max="0.5" step="0.01" value="0.1"></label>
+        <label>Estilo de transicao
+          <select id="jlMode"><option value="none">Corte seco</option><option value="j">J-cut</option><option value="l">L-cut</option><option value="alt">J e L alternados</option><option value="both">J + L em todos</option></select>
+        </label>
+        <label>Antecipacao J (s) <span id="vLead" class="mono"></span><input type="range" id="lead" min="0.05" max="1" step="0.01" value="0.25"></label>
+        <label>Extensao L (s) <span id="vTail" class="mono"></span><input type="range" id="tail" min="0.05" max="1" step="0.01" value="0.25"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="protect" checked> Proteger palavras transcritas (nao cortar dentro de fala)</label>
+      <label class="chk"><input type="checkbox" id="followCut" checked> Reajustar legendas ao aplicar o corte</label>
+      <div class="row">
+        <button id="btnAnalyze" class="primary">Analisar audio</button>
+        <button id="btnApplyCut" disabled>Aplicar rough cut</button>
+      </div>
+      <div id="cutStat" class="muted"></div>
+    </div>
+
+    <div class="pane" id="tab-cap">
+      <div class="grid2">
+        <label>Max. caracteres por linha <span id="vChars" class="mono"></span><input type="range" id="maxChars" min="12" max="60" step="1" value="32"></label>
+        <label>Linhas por bloco
+          <select id="maxLines"><option>1</option><option selected>2</option><option>3</option></select>
+        </label>
+        <label>Palavras por segundo (max) <span id="vWps" class="mono"></span><input type="range" id="maxWps" min="1.5" max="7" step="0.1" value="3.5"></label>
+        <label>Pausa que separa blocos (s) <span id="vPause" class="mono"></span><input type="range" id="pause" min="0.2" max="2" step="0.05" value="0.6"></label>
+      </div>
+      <div class="row wrap">
+        <button id="btnRebuild" class="ghost small">Refazer blocos</button>
+        <button id="btnExportSrt" class="ghost small">Exportar SRT</button>
+        <span class="muted" id="capStat"></span>
+      </div>
+      <div class="hint">
+        <b>Atalhos no bloco:</b> Alt+&rarr; envia a ultima palavra ao proximo bloco, Alt+&larr; envia a primeira ao bloco anterior.
+        Com Shift traz a palavra do vizinho. Enter divide no cursor, Backspace no inicio une com o anterior, Shift+Enter forca quebra de linha.
+      </div>
+      <div id="blocks"></div>
+    </div>
+
+    <div class="pane" id="tab-style">
+      <div class="row">
+        <select id="presetSel"></select>
+        <button id="btnPresetSave" class="small">Salvar como...</button>
+        <button id="btnPresetDel" class="ghost small">Excluir</button>
+      </div>
+      <div class="row wrap">
+        <button id="btnPresetExport" class="ghost small">Exportar presets</button>
+        <button id="btnPresetImport" class="ghost small">Importar presets</button>
+        <input type="file" id="filePresets" accept=".json" class="hidden">
+      </div>
+      <div id="styleForm"></div>
+    </div>
+
+    <div class="pane" id="tab-apply">
+      <label>Metodo de insercao
+        <select id="applyMode">
+          <option value="raster">Camadas gráficas com keyframes (PNG animado)</option>
+          <option value="mogrt">Essential Graphics (MOGRT)</option>
+          <option value="srt">Faixa de legendas nativa (SRT)</option>
+        </select>
+      </label>
+      <div id="mogrtBox" class="hidden">
+        <label>Arquivo .mogrt <input type="text" id="mogrtPath" placeholder="C:\\caminho\\template.mogrt"></label>
+        <label>Nome do parametro de texto <input type="text" id="mogrtParam" placeholder="Source Text (vazio = automatico)"></label>
+      </div>
+      <div class="grid2">
+        <label>Trilha de video (V) <input type="number" id="vTrack" min="1" max="20" value="2"></label>
+        <label>Origem do tempo
+          <select id="baseMode"><option value="clip">Inicio do clip selecionado</option><option value="zero">Inicio da sequencia</option><option value="playhead">Playhead atual</option></select>
+        </label>
+      </div>
+      <div class="row"><button id="btnApply" class="primary">Inserir na timeline</button></div>
+      <div class="muted" id="applyStat"></div>
+    </div>
+  </main>
+
+  <footer><div id="log"></div></footer>
+</div>
+
+<script src="js/cs.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/core/captions.js"></script>
+<script src="js/core/silence.js"></script>
+<script src="js/core/presets.js"></script>
+<script src="js/core/render.js"></script>
+<script src="js/node/audio.js"></script>
+<script src="js/node/transcribe.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
