@@ -31,7 +31,13 @@ class TestHttpServer(
                 } catch (_: IOException) {
                     break
                 }
-                thread(isDaemon = true) { handle(client) }
+                thread(isDaemon = true) {
+                    // O player da prévia fecha conexões no meio (ao pular para outro ponto); é normal.
+                    try {
+                        handle(client)
+                    } catch (_: IOException) {
+                    }
+                }
             }
         }
     }
