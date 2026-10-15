@@ -2,9 +2,11 @@ package com.joohn.baixavideos
 
 import android.content.ContentValues
 import android.content.Context
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.DownloadTask
@@ -26,6 +28,20 @@ import kotlin.time.Duration.Companion.seconds
 const val TAG = "CharisTest"
 
 object TestSupport {
+    /**
+     * O emulador do CI às vezes mostra "Pixel Launcher isn't responding" por cima de tudo.
+     * O aviso é do sistema, não do app; tocar em "Wait" fecha e deixa o teste seguir.
+     */
+    fun dismissSystemDialogs(device: UiDevice) {
+        repeat(3) {
+            if (device.findObject(By.textContains("isn't responding")) == null) return
+            Log.w(TAG, "Fechando aviso de app do sistema travado")
+            (device.findObject(By.text("Wait")) ?: device.findObject(By.text("Close app")))?.click()
+            device.waitForIdle()
+            SystemClock.sleep(500)
+        }
+    }
+
     val testAssets get() = InstrumentationRegistry.getInstrumentation().context.assets
 
     /** Espera o motor iniciar e a atualização automática do yt-dlp (se houver) terminar. */
@@ -68,6 +84,7 @@ object TestSupport {
 
     /** Captura a tela e guarda em Download/CharisCI (sobrevive à desinstalação no fim do teste). */
     fun screenshot(device: UiDevice, context: Context, name: String) {
+        dismissSystemDialogs(device)
         val tmp = File(context.cacheDir, "$name.png")
         device.takeScreenshot(tmp)
         val values = ContentValues().apply {

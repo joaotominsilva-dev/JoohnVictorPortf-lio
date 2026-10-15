@@ -47,6 +47,7 @@ class ScreenshotTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 settle()
                 TestSupport.screenshot(device, context, "01_boas_vindas")
+                TestSupport.dismissSystemDialogs(device)
                 device.findObject(By.text("Começar"))?.click()
                 settle()
 
@@ -132,6 +133,7 @@ class ScreenshotTest {
     /** Procura um texto na tela, rolando para baixo algumas vezes, e toca nele. */
     private fun clickWithScroll(text: Pattern, attempts: Int = 4): Boolean {
         repeat(attempts) {
+            TestSupport.dismissSystemDialogs(device)
             val target = device.findObject(By.text(text))
             if (target != null) {
                 target.click()
@@ -150,6 +152,7 @@ class ScreenshotTest {
     }
 
     private suspend fun settle() {
+        TestSupport.dismissSystemDialogs(device)
         device.waitForIdle()
         delay(1_500) // o emulador (renderização por software) leva alguns quadros para redesenhar
     }
