@@ -1,38 +1,30 @@
 package com.joohn.baixavideos.ui
 
+import android.app.DownloadManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import androidx.compose.foundation.background
+import android.widget.Toast
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,163 +35,117 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.joohn.baixavideos.BuildConfig
 import com.joohn.baixavideos.data.Prefs
-import com.joohn.baixavideos.engine.Downloads
 import com.joohn.baixavideos.engine.Engine
 import com.joohn.baixavideos.engine.InstagramSession
 import com.joohn.baixavideos.engine.MediaSaver
-import com.joohn.baixavideos.ui.components.BrandHeader
-import com.joohn.baixavideos.ui.components.BrandPanel
-import com.joohn.baixavideos.ui.components.SectionLabel
-import com.joohn.baixavideos.ui.components.TopStrip
-import com.joohn.baixavideos.ui.theme.Brand
-import com.joohn.baixavideos.ui.theme.MonoLabel
+import com.joohn.baixavideos.ui.components.CharisSwitch
+import com.joohn.baixavideos.ui.components.Headline
+import com.joohn.baixavideos.ui.components.PrimaryButton
+import com.joohn.baixavideos.ui.components.TopBar
+import com.joohn.baixavideos.ui.theme.Charis
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen() {
     val context = LocalContext.current
-    val c = Brand.colors
     val settings by Prefs.settings.collectAsStateWithLifecycle()
     val engine by Engine.state.collectAsStateWithLifecycle()
     val update by Engine.update.collectAsStateWithLifecycle()
-    val tasks by Downloads.tasks.collectAsStateWithLifecycle()
     val instagram by InstagramSession.loggedIn.collectAsStateWithLifecycle()
     var confirmLogout by remember { mutableStateOf(false) }
+    var about by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            Column(Modifier.background(c.paper)) {
-                TopStrip(recording = tasks.any { it.status.isActive })
-                BrandHeader(
-                    title = "AJUSTES",
-                    subtitle = "BAIXA VÍDEOS · JOOHN",
-                    leading = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = c.ink)
-                        }
-                    },
-                )
-                HorizontalDivider(color = c.line)
-            }
-        },
-        containerColor = c.paper,
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            Section("INSTAGRAM") {
-                Text(
-                    if (instagram) {
-                        "Conta conectada. Os downloads do Instagram usam o seu login."
-                    } else {
-                        "Muitos vídeos do Instagram só baixam com login. Você entra pelo site oficial do " +
-                            "Instagram, aqui dentro do app, e o acesso fica salvo só neste aparelho."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = c.ink,
-                )
-                Spacer(Modifier.height(12.dp))
-                if (instagram) {
-                    OutlinedButton(onClick = { confirmLogout = true }, shape = RoundedCornerShape(6.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Sair da conta")
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.statusBarsPadding())
+        TopBar("Ajustes")
+        Headline("Seus ajustes", "Veja e mude como o app funciona.", Modifier.padding(top = 6.dp))
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp)) {
+            SettingRow(
+                title = "Conta do Instagram",
+                subtitle = if (instagram) "Conectada · toque para sair" else "Entre para baixar vídeos que pedem login",
+                onClick = {
+                    if (instagram) confirmLogout = true
+                    else context.startActivity(Intent(context, InstagramLoginActivity::class.java))
+                },
+            )
+            SettingRow(
+                title = "Motor de download",
+                subtitle = engineText(engine, update),
+                onClick = { Engine.requestUpdate() },
+            )
+            SettingRow(
+                title = "Atualizar sozinho",
+                subtitle = "Procura versão nova a cada 12 horas",
+                onClick = { Prefs.update { it.copy(autoUpdate = !it.autoUpdate) } },
+                trailing = {
+                    CharisSwitch(
+                        checked = settings.autoUpdate,
+                        onCheckedChange = { value -> Prefs.update { it.copy(autoUpdate = value) } },
+                        onDark = true,
+                    )
+                },
+            )
+            SettingRow(
+                title = "Versão nightly",
+                subtitle = "Correções no mesmo dia, se algum site parar de baixar",
+                onClick = {
+                    Prefs.update { it.copy(nightly = !it.nightly) }
+                    Engine.requestUpdate()
+                },
+                trailing = {
+                    CharisSwitch(
+                        checked = settings.nightly,
+                        onCheckedChange = { value ->
+                            Prefs.update { it.copy(nightly = value) }
+                            Engine.requestUpdate()
+                        },
+                        onDark = true,
+                    )
+                },
+            )
+            SettingRow(
+                title = "Pasta dos arquivos",
+                subtitle = "${MediaSaver.publicPath} · aparece na galeria",
+                onClick = {
+                    try {
+                        context.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, "Abra o app de arquivos e procure ${MediaSaver.publicPath}.", Toast.LENGTH_LONG).show()
                     }
-                } else {
-                    Button(
-                        onClick = { context.startActivity(Intent(context, InstagramLoginActivity::class.java)) },
-                        shape = RoundedCornerShape(6.dp),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Entrar no Instagram")
-                    }
-                }
-            }
-
-            Section("MOTOR DE DOWNLOAD") {
-                val version = (engine as? Engine.State.Ready)?.version
-                Text(
-                    "yt-dlp " + (version ?: "…"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = c.ink,
-                )
-                Text(updateText(engine, update), style = MonoLabel, color = c.inkSoft)
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = { Engine.requestUpdate() },
-                    enabled = engine is Engine.State.Ready && !update.inFlight,
-                    shape = RoundedCornerShape(6.dp),
-                ) {
-                    if (update.inFlight) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text("Atualizar agora")
-                }
-                Spacer(Modifier.height(8.dp))
-                SwitchRow(
-                    title = "Atualizar automaticamente",
-                    subtitle = "Procura versão nova ao abrir o app, no máximo a cada 12 horas.",
-                    checked = settings.autoUpdate,
-                    onChange = { value -> Prefs.update { it.copy(autoUpdate = value) } },
-                )
-                SwitchRow(
-                    title = "Versão nightly",
-                    subtitle = "Recebe correções no mesmo dia. Ligue se algum site parar de baixar.",
-                    checked = settings.nightly,
-                    onChange = { value ->
-                        Prefs.update { it.copy(nightly = value) }
-                        Engine.requestUpdate()
-                    },
-                )
-            }
-
-            Section("COMPARTILHAR") {
-                SwitchRow(
-                    title = "Baixar ao compartilhar",
-                    subtitle = "Ao compartilhar um link com o app, o download começa sozinho no formato e na qualidade escolhidos.",
-                    checked = settings.autoStartOnShare,
-                    onChange = { value -> Prefs.update { it.copy(autoStartOnShare = value) } },
-                )
-            }
-
-            Section("ARQUIVOS") {
-                Text(
-                    "Tudo fica em ${MediaSaver.publicPath} e aparece na galeria e no app de música.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = c.ink,
-                )
-            }
-
-            Section("SOBRE") {
-                Text("Baixa Vídeos ${BuildConfig.VERSION_NAME} · JOOHN", style = MaterialTheme.typography.titleSmall, color = c.ink)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Feito com yt-dlp, youtubedl-android (GPL-3.0), FFmpeg, Python e QuickJS. " +
-                        "Fontes Archivo e Courier Prime (SIL Open Font License 1.1).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = c.inkSoft,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Baixe só o que você tem direito de usar e respeite quem criou o conteúdo.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = c.inkSoft,
-                )
-            }
+                },
+            )
+            SettingRow(
+                title = "Sobre",
+                subtitle = "Charis Downloader ${BuildConfig.VERSION_NAME} · licenças",
+                onClick = { about = true },
+            )
+            Spacer(Modifier.height(20.dp))
+            PrimaryButton(
+                text = if (update.inFlight) "Atualizando o motor…" else "Atualizar motor agora",
+                onClick = { Engine.requestUpdate() },
+                enabled = engine is Engine.State.Ready && !update.inFlight,
+                icon = Icons.Filled.Refresh,
+                onDark = true,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Feito com yt-dlp, FFmpeg e Python",
+                style = MaterialTheme.typography.bodySmall,
+                color = Charis.OnDarkSoft,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
+        BottomSpace()
     }
 
     if (confirmLogout) {
@@ -216,48 +162,84 @@ fun SettingsScreen(onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancelar") } },
         )
     }
-}
-
-private fun updateText(engine: Engine.State, update: Engine.UpdateState): String = when {
-    engine is Engine.State.Starting -> "PREPARANDO O MOTOR"
-    engine is Engine.State.Failed -> "ERRO: ${engine.message}"
-    update is Engine.UpdateState.Checking -> "PROCURANDO ATUALIZAÇÃO…"
-    update is Engine.UpdateState.Downloading -> "BAIXANDO A VERSÃO ${update.version}…"
-    update is Engine.UpdateState.WaitingIdle -> "VERSÃO ${update.version} INSTALA QUANDO OS DOWNLOADS ACABAREM"
-    update is Engine.UpdateState.Updated -> "ATUALIZADO AGORA"
-    update is Engine.UpdateState.UpToDate -> "JÁ ESTÁ NA VERSÃO MAIS NOVA"
-    update is Engine.UpdateState.Failed -> "FALHA AO ATUALIZAR: ${update.message}"
-    else -> "PRONTO"
-}
-
-@Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        SectionLabel(title)
-        Spacer(Modifier.height(10.dp))
-        BrandPanel(modifier = Modifier.fillMaxWidth(), content = content)
+    if (about) {
+        AlertDialog(
+            onDismissRequest = { about = false },
+            title = { Text("Charis Downloader ${BuildConfig.VERSION_NAME}") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "Baixa vídeos e áudios do Instagram, YouTube e TikTok, inteiros ou só um trecho.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Feito com yt-dlp (Unlicense), youtubedl-android (GPL-3.0), FFmpeg (GPL), Python, " +
+                            "QuickJS e AndroidX Media3 (Apache 2.0). Fonte Archivo (SIL Open Font License 1.1).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Charis.OnDarkSoft,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Baixe só o que você tem direito de usar e respeite quem criou o conteúdo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Charis.OnDarkSoft,
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { about = false }) { Text("Fechar") } },
+        )
     }
 }
 
+private fun engineText(engine: Engine.State, update: Engine.UpdateState): String {
+    val version = (engine as? Engine.State.Ready)?.version
+    val status = when {
+        engine is Engine.State.Starting -> "preparando"
+        engine is Engine.State.Failed -> "não iniciou: ${engine.message}"
+        update is Engine.UpdateState.Checking -> "procurando atualização…"
+        update is Engine.UpdateState.Downloading -> "baixando a versão ${update.version}…"
+        update is Engine.UpdateState.WaitingIdle -> "a versão ${update.version} instala quando os downloads acabarem"
+        update is Engine.UpdateState.Updated -> "atualizado agora"
+        update is Engine.UpdateState.UpToDate -> "já é a versão mais nova"
+        update is Engine.UpdateState.Failed -> "falha ao atualizar: ${update.message}"
+        else -> "toque para procurar atualização"
+    }
+    return if (version != null) "yt-dlp $version · $status" else status.replaceFirstChar { it.uppercase() }
+}
+
 @Composable
-private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    val c = Brand.colors
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onChange(!checked) }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = c.ink)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = c.inkSoft)
+private fun SettingRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = if (trailing != null) Role.Switch else Role.Button, onClick = onClick)
+                .heightIn(min = 64.dp)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = Charis.Cream)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Charis.OnDarkSoft)
+            }
+            Spacer(Modifier.width(12.dp))
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Charis.OnDarkSoft,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
-        Spacer(Modifier.width(12.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = c.blue),
-        )
+        HorizontalDivider(color = Charis.DarkLine)
     }
 }

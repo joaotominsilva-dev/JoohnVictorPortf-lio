@@ -19,8 +19,8 @@ android {
         applicationId = "com.joohn.baixavideos"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         if (targetAbi != null) {
             ndk { abiFilters += targetAbi }
@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.dash)
+    implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.youtubedl.library)
     implementation(libs.youtubedl.ffmpeg)
     debugImplementation(libs.androidx.compose.ui.tooling)

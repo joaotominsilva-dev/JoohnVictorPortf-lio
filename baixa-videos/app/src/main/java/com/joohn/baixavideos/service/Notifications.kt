@@ -24,7 +24,7 @@ object Notifications {
     const val ID_PROGRESS = 1001
     private const val CHANNEL_PROGRESS = "downloads_progress"
     private const val CHANNEL_RESULT = "downloads_result"
-    private const val BRAND_BLUE = 0xFF1B4F8C.toInt()
+    private const val BRAND_COLOR = 0xFF5E604F.toInt()
 
     fun createChannels(context: Context) {
         val manager = NotificationManagerCompat.from(context)
@@ -56,7 +56,7 @@ object Notifications {
         }.orEmpty()
         return NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_stat_download)
-            .setColor(BRAND_BLUE)
+            .setColor(BRAND_COLOR)
             .setContentTitle(title)
             .setContentText(detail)
             .setOngoing(true)
@@ -77,7 +77,7 @@ object Notifications {
         if (AppVisibility.isVisible) return
         val builder = NotificationCompat.Builder(context, CHANNEL_RESULT)
             .setSmallIcon(R.drawable.ic_stat_download)
-            .setColor(BRAND_BLUE)
+            .setColor(BRAND_COLOR)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context))
         when (task.status) {
@@ -120,7 +120,9 @@ object Notifications {
     private fun openAppIntent(context: Context): PendingIntent = PendingIntent.getActivity(
         context,
         0,
-        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_SHOW_DOWNLOADS, true)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 }

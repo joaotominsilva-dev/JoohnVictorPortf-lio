@@ -13,7 +13,6 @@ data class Settings(
     val quality: VideoQuality = VideoQuality.P1080,
     val autoUpdate: Boolean = true,
     val nightly: Boolean = false,
-    val autoStartOnShare: Boolean = false,
 )
 
 object Prefs {
@@ -29,7 +28,6 @@ object Prefs {
             quality = enumOr(sp.getString(KEY_QUALITY, null), VideoQuality.P1080),
             autoUpdate = sp.getBoolean(KEY_AUTO_UPDATE, true),
             nightly = sp.getBoolean(KEY_NIGHTLY, false),
-            autoStartOnShare = sp.getBoolean(KEY_AUTO_START, false),
         )
     }
 
@@ -41,13 +39,17 @@ object Prefs {
             .putString(KEY_QUALITY, next.quality.name)
             .putBoolean(KEY_AUTO_UPDATE, next.autoUpdate)
             .putBoolean(KEY_NIGHTLY, next.nightly)
-            .putBoolean(KEY_AUTO_START, next.autoStartOnShare)
             .apply()
     }
 
     var lastUpdateCheck: Long
         get() = sp.getLong(KEY_LAST_CHECK, 0L)
         set(value) = sp.edit().putLong(KEY_LAST_CHECK, value).apply()
+
+    /** A tela de boas-vindas aparece só na primeira abertura. */
+    var welcomeSeen: Boolean
+        get() = sp.getBoolean(KEY_WELCOME_SEEN, false)
+        set(value) = sp.edit().putBoolean(KEY_WELCOME_SEEN, value).apply()
 
     var askedNotificationPermission: Boolean
         get() = sp.getBoolean(KEY_ASKED_NOTIFICATIONS, false)
@@ -60,7 +62,7 @@ object Prefs {
     private const val KEY_QUALITY = "quality"
     private const val KEY_AUTO_UPDATE = "auto_update"
     private const val KEY_NIGHTLY = "nightly"
-    private const val KEY_AUTO_START = "auto_start_on_share"
+    private const val KEY_WELCOME_SEEN = "welcome_seen"
     private const val KEY_LAST_CHECK = "ytdlp_last_check"
     private const val KEY_ASKED_NOTIFICATIONS = "asked_notifications"
 }

@@ -10,6 +10,7 @@ import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.DownloadTask
 import com.joohn.baixavideos.engine.Downloads
 import com.joohn.baixavideos.engine.Engine
+import com.joohn.baixavideos.engine.Trim
 import com.joohn.baixavideos.engine.VideoQuality
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -22,7 +23,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-const val TAG = "BaixaVideosTest"
+const val TAG = "CharisTest"
 
 object TestSupport {
     val testAssets get() = InstrumentationRegistry.getInstrumentation().context.assets
@@ -46,8 +47,9 @@ object TestSupport {
         mode: DownloadMode,
         quality: VideoQuality = VideoQuality.P720,
         timeout: Duration = 5.minutes,
+        trim: Trim? = null,
     ): DownloadTask {
-        val task = Downloads.enqueue(context, url, mode, quality)
+        val task = Downloads.enqueue(context, url, mode, quality, trim)
         val stages = mutableListOf<String>()
         val result = withTimeoutOrNull(timeout) {
             Downloads.tasks
@@ -64,14 +66,14 @@ object TestSupport {
         return result
     }
 
-    /** Captura a tela e guarda em Download/BaixaVideosCI (sobrevive à desinstalação no fim do teste). */
+    /** Captura a tela e guarda em Download/CharisCI (sobrevive à desinstalação no fim do teste). */
     fun screenshot(device: UiDevice, context: Context, name: String) {
         val tmp = File(context.cacheDir, "$name.png")
         device.takeScreenshot(tmp)
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, "$name.png")
             put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/BaixaVideosCI")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/CharisCI")
         }
         val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
         if (uri == null) {

@@ -81,7 +81,7 @@ class DownloadService : Service() {
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val power = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BaixaVideos:download").apply {
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Charis:download").apply {
             setReferenceCounted(false)
             acquire(3 * 60 * 60 * 1000L)
         }

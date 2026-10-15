@@ -20,11 +20,11 @@ import java.io.IOException
 import kotlin.coroutines.resume
 
 /**
- * Copia o arquivo final (baixado na pasta privada do app) para Download/BaixaVideos,
+ * Copia o arquivo final (baixado na pasta privada do app) para Download/Charis,
  * onde a galeria, o player de música e o gerenciador de arquivos enxergam.
  */
 object MediaSaver {
-    const val FOLDER = "BaixaVideos"
+    const val FOLDER = "Charis"
     val publicPath = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER"
 
     fun needsLegacyPermission(context: Context): Boolean =

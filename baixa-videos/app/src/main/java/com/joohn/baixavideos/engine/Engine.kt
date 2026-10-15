@@ -100,7 +100,7 @@ object Engine {
     }
 
     /** Executa um processo do yt-dlp registrado como "em uso", bloqueando a troca de versão. */
-    suspend fun <T> withProcess(block: () -> T): T {
+    suspend fun <T> withProcess(block: suspend () -> T): T {
         swapLock.withLock { running.incrementAndGet() }
         try {
             return block()

@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Só cobre a janela antes do Compose desenhar; as cores do app estão em ui/theme/Theme.kt. -->
-    <style name="Theme.BaixaVideos" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/paper</item>
-        <item name="android:colorAccent">@color/brand_blue</item>
+    <style name="Theme.Charis" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/charcoal</item>
+        <item name="android:colorAccent">@color/sage</item>
+    </style>
+
+    <!-- Janela de opções que abre por cima do app que compartilhou o link. -->
+    <style name="Theme.Charis.Share">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

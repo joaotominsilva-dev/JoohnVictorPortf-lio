@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -58,12 +59,24 @@ object Downloads {
 
     fun find(id: String): DownloadTask? = _tasks.value.firstOrNull { it.id == id }
 
-    fun enqueue(context: Context, url: String, mode: DownloadMode, quality: VideoQuality): DownloadTask {
+    /** Põe um download na fila. [info], quando já lido na prévia, mostra título e miniatura de imediato. */
+    fun enqueue(
+        context: Context,
+        url: String,
+        mode: DownloadMode,
+        quality: VideoQuality,
+        trim: Trim? = null,
+        info: VideoInfo? = null,
+    ): DownloadTask {
         val task = DownloadTask(
             id = UUID.randomUUID().toString().replace("-", "").take(16),
             url = url.trim(),
             mode = mode,
             quality = quality,
+            trim = trim,
+            title = info?.title,
+            uploader = info?.uploader,
+            thumbnail = info?.thumbnail,
             stage = "Na fila",
         )
         _tasks.update { listOf(task) + it }
@@ -77,7 +90,8 @@ object Downloads {
     fun retry(context: Context, id: String) {
         val old = find(id) ?: return
         remove(id)
-        enqueue(context, old.url, old.mode, old.quality)
+        val info = VideoInfo(old.url, old.title, old.uploader, old.thumbnail, durationSec = null)
+        enqueue(context, old.url, old.mode, old.quality, old.trim, info)
     }
 
     fun cancel(id: String) {
@@ -139,7 +153,7 @@ object Downloads {
         val platform = Links.platformOf(task.url)
         val cookies = if (platform == Platform.INSTAGRAM) InstagramSession.copyFor(app, workDir) else null
         val request = buildRequest(task, workDir, cookies)
-        val run = RunState(task.mode)
+        val run = RunState(task.mode, trimmed = task.trim != null)
 
         val failure = Engine.withProcess {
             if (id in cancelled) return@withProcess null
@@ -208,7 +222,7 @@ object Downloads {
                         thumbnail = event.thumbnail ?: it.thumbnail,
                         itemIndex = event.index,
                         itemCount = event.count,
-                        stage = run.label("Baixando"),
+                        stage = run.label(if (run.trimmed) "Baixando o trecho" else "Baixando"),
                         progress = null,
                     )
                 }
@@ -220,10 +234,11 @@ object Downloads {
                     it.copy(
                         status = TaskStatus.DOWNLOADING,
                         stage = run.label(
-                            when (event.stream) {
-                                OutputParser.Stream.VIDEO_ONLY -> "Baixando vídeo"
-                                OutputParser.Stream.AUDIO_ONLY -> "Baixando áudio"
-                                OutputParser.Stream.MUXED -> "Baixando"
+                            when {
+                                run.trimmed -> "Baixando o trecho"
+                                event.stream == OutputParser.Stream.VIDEO_ONLY -> "Baixando vídeo"
+                                event.stream == OutputParser.Stream.AUDIO_ONLY -> "Baixando áudio"
+                                else -> "Baixando"
                             },
                         ),
                         progress = overall,
@@ -267,8 +282,16 @@ object Downloads {
             addOption("--print", OutputParser.fileTemplate)
             addOption("--progress-template", OutputParser.progressTemplate)
             addOption("--progress-template", OutputParser.postprocessTemplate)
-            addOption("-o", File(workDir, "%(title).80B [%(id)s].%(ext)s").absolutePath)
+            val section = task.trim?.let { " trecho ${fileTime(it.startSec)}-${fileTime(it.endSec)}" }.orEmpty()
+            addOption("-o", File(workDir, "%(title).70B [%(id)s]$section.%(ext)s").absolutePath)
             if (cookies != null) addOption("--cookies", cookies.absolutePath)
+            task.trim?.let { trim ->
+                // Baixa só o trecho; o FFmpeg recorta e recodifica as pontas para o corte cair no
+                // segundo exato (sem isso ele volta até o quadro-chave anterior).
+                addOption("--download-sections", "*${trim.startSec}-${trim.endSec}")
+                addOption("--force-keyframes-at-cuts")
+                addOption("--downloader-args", "ffmpeg_o:-preset veryfast -crf 20")
+            }
             when (task.mode) {
                 DownloadMode.VIDEO -> {
                     // Prioriza a resolução escolhida; no empate, H.264 + AAC (toca em qualquer aparelho).
@@ -325,10 +348,19 @@ object Downloads {
 
     private fun workRoot() = File(app.cacheDir, "downloads")
 
+    /** 754 -> "12m34s"; 3725 -> "1h02m05s" (nome de arquivo sem dois-pontos). */
+    private fun fileTime(seconds: Long): String {
+        val h = seconds / 3600
+        val m = (seconds % 3600) / 60
+        val s = seconds % 60
+        return if (h > 0) String.format(Locale.US, "%dh%02dm%02ds", h, m, s)
+        else String.format(Locale.US, "%02dm%02ds", m, s)
+    }
+
     private val TEMP_EXTENSIONS = setOf("part", "ytdl", "temp", "tmp", "json")
 
     /** Estado de um processo em andamento; só é tocado pela thread que lê a saída do yt-dlp. */
-    private class RunState(val mode: DownloadMode) {
+    private class RunState(val mode: DownloadMode, val trimmed: Boolean) {
         val files = mutableListOf<String>()
         val errors = mutableListOf<String>()
         var itemIndex: Int? = null

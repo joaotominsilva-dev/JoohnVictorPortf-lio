@@ -1,24 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Visor de câmera com seta de download e o ponto vermelho de "REC". -->
+<!-- Logo Charis (arte original 1366x1366) centralizado na zona segura do ícone adaptável. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="4.5"
-        android:strokeLineCap="square"
-        android:pathData="M30,41V30H41M67,30H78V41M30,67V78H41M67,78H78V67" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M54,38V60.5M45.5,52.5L54,61L62.5,52.5M44.5,68.5H63.5" />
-    <path
-        android:fillColor="#FFE15A4C"
-        android:pathData="M71,37m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+    <group
+        android:scaleX="0.061"
+        android:scaleY="0.061"
+        android:translateX="12.337"
+        android:translateY="12.337">
+        <path
+            android:fillColor="#9A9B89"
+            android:pathData="M258.31,567.67v267c0,136.96,111.03,247.98,247.98,247.98,10.03,0,18.16-8.13,18.16-18.16v-496.81c0-10.03-8.13-18.16-18.16-18.16h-229.82c-10.03,0-18.16,8.13-18.16,18.16Z" />
+        <path
+            android:fillColor="#9A9B89"
+            android:pathData="M1057.61,531.34c0-136.96-111.03-247.98-247.98-247.98h-267c-10.03,0-18.17,8.13-18.17,18.16v229.82c0,10.03,8.14,18.16,18.17,18.16h496.81c10.03,0,18.16-8.13,18.16-18.16Z" />
+        <path
+            android:fillColor="#9A9B89"
+            android:pathData="M850.09,912.31c13.5-13.5,31.45-20.93,50.54-20.93,5.7,0,11.3.66,16.71,1.95v-77.25c0-.99.03-1.98.08-2.96h-123.28c-4.95,0-9.68,2.02-13.11,5.59l-223.7,233.2c-11.08,11.55-2.9,30.74,13.11,30.74h239.19c32.53,0,63.59-6.27,92.06-17.66l-51.59-51.59c-27.87-27.87-27.87-73.21,0-101.08Z" />
+        <path
+            android:fillColor="#9A9B89"
+            android:pathData="M1056.51,944.65l-38.46,36.99v-165.56c0-16.21-13.14-29.36-29.36-29.36s-29.36,13.14-29.36,29.36v164.1l-37.87-38.16c-11.51-11.51-30.17-11.51-41.68,0s-11.51,30.17,0,41.68l88.07,88.07c5.54,5.49,13.04,8.56,20.84,8.51,7.56-.03,14.81-2.97,20.26-8.22l88.07-85.13c12.5-10.32,14.28-28.82,3.96-41.33-10.32-12.5-28.82-14.28-41.33-3.96-1.12.92-2.17,1.93-3.14,3.01Z" />
+    </group>
 </vector>

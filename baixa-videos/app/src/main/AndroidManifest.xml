@@ -18,7 +18,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.BaixaVideos">
+        android:theme="@style/Theme.Charis">
 
         <activity
             android:name=".MainActivity"
@@ -29,6 +29,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <!-- Abre por cima do app que compartilhou o link, com as opções de download. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/share_label"
+            android:theme="@style/Theme.Charis.Share"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter android:label="@string/share_label">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

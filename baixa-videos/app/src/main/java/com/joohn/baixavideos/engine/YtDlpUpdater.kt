@@ -78,6 +78,6 @@ internal object YtDlpUpdater {
             instanceFollowRedirects = followRedirects
             connectTimeout = 15_000
             readTimeout = 30_000
-            setRequestProperty("User-Agent", "BaixaVideos/${BuildConfig.VERSION_NAME} (Android)")
+            setRequestProperty("User-Agent", "CharisDownloader/${BuildConfig.VERSION_NAME} (Android)")
         }
 }

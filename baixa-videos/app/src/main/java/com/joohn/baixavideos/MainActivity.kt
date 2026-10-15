@@ -5,38 +5,46 @@ import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.joohn.baixavideos.ui.HomeScreen
-import com.joohn.baixavideos.ui.SettingsScreen
-import com.joohn.baixavideos.ui.theme.BaixaVideosTheme
+import androidx.compose.runtime.LaunchedEffect
+import com.joohn.baixavideos.ui.MainScreen
+import com.joohn.baixavideos.ui.WelcomeScreen
+import com.joohn.baixavideos.ui.theme.CharisTheme
 import com.joohn.baixavideos.util.AppVisibility
 
 class MainActivity : ComponentActivity() {
-    private val vm: MainViewModel by viewModels()
+    val vm: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // A faixa azul do topo fica atrás da barra de status, então os ícones são sempre claros.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) handleShare(intent)
+        if (savedInstanceState == null) handleIntent(intent)
         setContent {
-            BaixaVideosTheme {
-                BackHandler(enabled = vm.screen != Screen.HOME) { vm.screen = Screen.HOME }
-                when (vm.screen) {
-                    Screen.HOME -> HomeScreen(vm, onOpenSettings = { vm.screen = Screen.SETTINGS })
-                    Screen.SETTINGS -> SettingsScreen(onBack = { vm.screen = Screen.HOME })
+            CharisTheme {
+                // Ícones da barra de status e de navegação acompanham o fundo de cada tela:
+                // boas-vindas é creme; Início e Downloads terminam no bloco sálvia; Ajustes é escuro.
+                val lightTop = vm.showWelcome
+                val lightBottom = vm.showWelcome || vm.tab != Tab.SETTINGS
+                LaunchedEffect(lightTop, lightBottom) {
+                    enableEdgeToEdge(
+                        statusBarStyle = style(lightTop),
+                        navigationBarStyle = style(lightBottom),
+                    )
                 }
+                if (vm.showWelcome) WelcomeScreen(onStart = vm::finishWelcome) else MainScreen(vm)
             }
         }
     }
 
+    private fun style(light: Boolean) =
+        if (light) SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT) else SystemBarStyle.dark(Color.TRANSPARENT)
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleShare(intent)
+        handleIntent(intent)
     }
 
     override fun onStart() {
@@ -49,10 +57,14 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    private fun handleShare(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_SEND) return
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)
-            ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
-        vm.onSharedText(text)
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        intent.getStringExtra(EXTRA_URL)?.let { vm.openWith(it) }
+        if (intent.getBooleanExtra(EXTRA_SHOW_DOWNLOADS, false)) vm.showDownloads()
+    }
+
+    companion object {
+        const val EXTRA_URL = "com.joohn.baixavideos.extra.URL"
+        const val EXTRA_SHOW_DOWNLOADS = "com.joohn.baixavideos.extra.SHOW_DOWNLOADS"
     }
 }

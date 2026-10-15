@@ -1,6 +1,9 @@
 package com.joohn.baixavideos
 
 import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
@@ -8,14 +11,22 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.SavedFile
 import com.joohn.baixavideos.engine.TaskStatus
+import com.joohn.baixavideos.engine.Trim
+import com.joohn.baixavideos.engine.VideoInfoFetcher
 import com.joohn.baixavideos.engine.VideoQuality
+import com.joohn.baixavideos.ui.trim.PreviewController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /** Roda o motor de verdade no emulador: Python, yt-dlp, FFmpeg e o salvamento em Download. */
 @RunWith(AndroidJUnit4::class)
@@ -45,6 +56,62 @@ class EngineSmokeTest {
             assertEquals("audio/mpeg", mp3.mime)
             assertReadable(mp3)
             Log.i(TAG, "OK local: ${mp4.name} (${mp4.size} B), ${mp3.name} (${mp3.size} B)")
+        }
+    }
+
+    /** O corte baixa só o trecho pedido, com o corte no segundo exato (recodificado em H.264). */
+    @Test
+    fun trimsVideoAndAudioToTheChosenSection(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        TestHttpServer(TestSupport.testAssets, "dash").use { server ->
+            val video = TestSupport.download(context, server.url("Trecho.mpd"), DownloadMode.VIDEO, trim = Trim(1, 2))
+            assertEquals(video.errorDetails, TaskStatus.DONE, video.status)
+            val mp4 = video.files.single()
+            val videoMs = durationMs(mp4)
+            val codec = videoMime(mp4)
+            Log.i(TAG, "Trecho de vídeo: ${mp4.name} | $videoMs ms | $codec")
+            assertTrue("duração do trecho: $videoMs ms", videoMs in 700L..1400L)
+            assertEquals("video/avc", codec)
+            assertTrue("nome sem o trecho: ${mp4.name}", "trecho 00m01s-00m02s" in mp4.name)
+
+            val audio = TestSupport.download(context, server.url("Trecho.mpd"), DownloadMode.AUDIO, trim = Trim(1, 2))
+            assertEquals(audio.errorDetails, TaskStatus.DONE, audio.status)
+            val mp3 = audio.files.single()
+            val audioMs = durationMs(mp3)
+            Log.i(TAG, "Trecho de áudio: ${mp3.name} | $audioMs ms")
+            assertTrue("duração do trecho de áudio: $audioMs ms", audioMs in 700L..1500L)
+        }
+    }
+
+    /** A prévia lê título e um endereço tocável, e o player da prévia abre esse endereço. */
+    @Test
+    fun readsInfoAndPlaysPreview(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        TestHttpServer(TestSupport.testAssets, "dash").use { server ->
+            val info = VideoInfoFetcher.fetch(context, server.url("Clipe%20de%20teste.mpd"))
+            Log.i(TAG, "Info: ${info.title} | ${info.durationSec} | ${info.preview.map { it.protocol }}")
+            assertEquals("Clipe de teste", info.title)
+            assertTrue("sem endereço de prévia", info.preview.isNotEmpty())
+
+            var reported: Double? = null
+            val controller = withContext(Dispatchers.Main) { PreviewController(context, info) { reported = it } }
+            try {
+                val ready = withTimeoutOrNull(30.seconds) {
+                    while (true) {
+                        val done = withContext(Dispatchers.Main) { controller.failed || (!controller.buffering && reported != null) }
+                        if (done) break
+                        delay(200)
+                    }
+                    true
+                }
+                val failed = withContext(Dispatchers.Main) { controller.failed }
+                Log.i(TAG, "Prévia: pronta=$ready falhou=$failed duração=$reported")
+                assertFalse("o player da prévia falhou", failed)
+                assertTrue("a prévia não carregou", ready == true)
+                assertTrue("duração da prévia: $reported", (reported ?: 0.0) in 2.5..3.5)
+            } finally {
+                withContext(Dispatchers.Main) { controller.release() }
+            }
         }
     }
 
@@ -79,6 +146,28 @@ class EngineSmokeTest {
                         "${task.error} | ${task.errorDetails?.take(800)}",
                 )
             }.onFailure { Log.w(TAG, "REAL $name: ${it.message}") }
+        }
+    }
+
+    private fun durationMs(file: SavedFile): Long {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, Uri.parse(file.uri))
+            return retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: -1L
+        } finally {
+            retriever.release()
+        }
+    }
+
+    private fun videoMime(file: SavedFile): String? {
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(context, Uri.parse(file.uri), null)
+            return (0 until extractor.trackCount)
+                .mapNotNull { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME) }
+                .firstOrNull { it.startsWith("video/") }
+        } finally {
+            extractor.release()
         }
     }
 

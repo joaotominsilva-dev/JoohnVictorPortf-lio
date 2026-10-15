@@ -16,17 +16,20 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,12 +40,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.joohn.baixavideos.engine.InstagramSession
-import com.joohn.baixavideos.ui.components.BrandHeader
-import com.joohn.baixavideos.ui.components.TopStrip
-import com.joohn.baixavideos.ui.theme.BaixaVideosTheme
-import com.joohn.baixavideos.ui.theme.Brand
+import com.joohn.baixavideos.ui.theme.Charis
+import com.joohn.baixavideos.ui.theme.CharisTheme
 import com.joohn.baixavideos.util.AppVisibility
 import kotlinx.coroutines.delay
 
@@ -59,7 +61,7 @@ class InstagramLoginActivity : ComponentActivity() {
             if (view != null && view.canGoBack()) view.goBack() else finish()
         }
         setContent {
-            BaixaVideosTheme {
+            CharisTheme {
                 LoginScreen(
                     onClose = { finish() },
                     onCreated = { webView = it },
@@ -102,7 +104,6 @@ class InstagramLoginActivity : ComponentActivity() {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun LoginScreen(onClose: () -> Unit, onCreated: (WebView) -> Unit, tryCapture: (Boolean) -> Boolean) {
-    val c = Brand.colors
     var loading by remember { mutableStateOf(true) }
 
     // O Instagram é um app de página única: depois do login a página pode nem recarregar.
@@ -113,31 +114,32 @@ private fun LoginScreen(onClose: () -> Unit, onCreated: (WebView) -> Unit, tryCa
         }
     }
 
-    Scaffold(
-        topBar = {
-            Column(Modifier.background(c.paper)) {
-                TopStrip(recording = false)
-                BrandHeader(
-                    title = "INSTAGRAM",
-                    subtitle = "O LOGIN FICA SÓ NESTE APARELHO",
-                    leading = {
-                        IconButton(onClick = onClose) {
-                            Icon(Icons.Filled.Close, contentDescription = "Fechar", tint = c.ink)
-                        }
-                    },
-                    actions = {
-                        TextButton(onClick = { tryCapture(true) }) { Text("Concluir") }
-                    },
-                )
-                HorizontalDivider(color = c.line)
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Charis.Charcoal)
+            .statusBarsPadding(),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(Icons.Filled.Close, contentDescription = "Fechar", tint = Charis.Cream)
             }
-        },
-        containerColor = c.paper,
-    ) { padding ->
+            Column(Modifier.weight(1f)) {
+                Text("Entrar no Instagram", style = MaterialTheme.typography.titleMedium, color = Charis.Cream)
+                Text("O login fica só neste aparelho", style = MaterialTheme.typography.bodySmall, color = Charis.OnDarkSoft)
+            }
+            TextButton(onClick = { tryCapture(true) }) { Text("Concluir", color = Charis.Sage) }
+        }
+        HorizontalDivider(color = Charis.DarkLine)
         Box(
             Modifier
-                .padding(padding)
                 .fillMaxSize()
+                .navigationBarsPadding()
                 .imePadding(),
         ) {
             AndroidView(
@@ -168,8 +170,8 @@ private fun LoginScreen(onClose: () -> Unit, onCreated: (WebView) -> Unit, tryCa
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter),
-                    color = c.blue,
-                    trackColor = c.line,
+                    color = Charis.Sage,
+                    trackColor = Charis.DarkLine,
                 )
             }
         }

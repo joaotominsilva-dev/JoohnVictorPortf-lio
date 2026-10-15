@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BaixaVideos"
+rootProject.name = "CharisDownloader"
 include(":app")

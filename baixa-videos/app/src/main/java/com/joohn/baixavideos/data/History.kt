@@ -6,6 +6,7 @@ import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.DownloadTask
 import com.joohn.baixavideos.engine.SavedFile
 import com.joohn.baixavideos.engine.TaskStatus
+import com.joohn.baixavideos.engine.Trim
 import com.joohn.baixavideos.engine.VideoQuality
 import org.json.JSONArray
 import org.json.JSONObject
@@ -46,6 +47,10 @@ internal object History {
         put("url", task.url)
         put("mode", task.mode.name)
         put("quality", task.quality.name)
+        task.trim?.let {
+            put("trimStart", it.startSec)
+            put("trimEnd", it.endSec)
+        }
         put("title", task.title)
         put("uploader", task.uploader)
         put("thumbnail", task.thumbnail)
@@ -69,6 +74,11 @@ internal object History {
             url = o.getString("url"),
             mode = runCatching { DownloadMode.valueOf(o.getString("mode")) }.getOrDefault(DownloadMode.VIDEO),
             quality = runCatching { VideoQuality.valueOf(o.getString("quality")) }.getOrDefault(VideoQuality.P1080),
+            trim = if (o.has("trimStart") && o.has("trimEnd")) {
+                runCatching { Trim(o.getLong("trimStart"), o.getLong("trimEnd")) }.getOrNull()
+            } else {
+                null
+            },
             status = TaskStatus.DONE,
             title = o.text("title"),
             uploader = o.text("uploader"),

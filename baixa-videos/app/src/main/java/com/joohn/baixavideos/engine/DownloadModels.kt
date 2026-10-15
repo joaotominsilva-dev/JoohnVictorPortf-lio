@@ -22,6 +22,36 @@ enum class TaskStatus {
     }
 }
 
+/** Trecho escolhido para baixar, em segundos inteiros contados do início do vídeo. */
+data class Trim(val startSec: Long, val endSec: Long) {
+    init {
+        require(startSec >= 0 && endSec > startSec) { "Trecho inválido: $startSec a $endSec" }
+    }
+
+    val lengthSec: Long get() = endSec - startSec
+}
+
+/** Dados lidos antes do download: alimentam a prévia e o corte. */
+data class VideoInfo(
+    val url: String,
+    val title: String?,
+    val uploader: String?,
+    val thumbnail: String?,
+    /** Duração em segundos; null quando o site não informa (lives e alguns links diretos). */
+    val durationSec: Double?,
+    /** Um endereço (vídeo com áudio) ou dois (vídeo e áudio separados) para tocar a prévia. */
+    val preview: List<PreviewStream> = emptyList(),
+)
+
+/** Endereço de reprodução de um formato, com os cabeçalhos que o site exige. */
+data class PreviewStream(
+    val url: String,
+    val protocol: String,
+    val manifestUrl: String?,
+    val headers: Map<String, String>,
+    val cookieHeader: String?,
+)
+
 data class SavedFile(
     val uri: String,
     val name: String,
@@ -34,6 +64,7 @@ data class DownloadTask(
     val url: String,
     val mode: DownloadMode,
     val quality: VideoQuality,
+    val trim: Trim? = null,
     val status: TaskStatus = TaskStatus.QUEUED,
     val title: String? = null,
     val uploader: String? = null,

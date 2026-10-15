@@ -33,5 +33,8 @@ object Formats {
         else String.format(Locale.US, "%02d:%02d", m, s)
     }
 
+    /** Sempre devolve um tempo: 00:00 para valores ausentes ou negativos. */
+    fun clock(seconds: Long): String = timecode(seconds.coerceAtLeast(0L)) ?: "00:00"
+
     fun percent(fraction: Float?): String? = fraction?.let { "${(it * 100).toInt().coerceIn(0, 100)}%" }
 }

@@ -7,6 +7,6 @@ adb logcat -c || true
 status=$?
 adb logcat -d -v time > build/ci/logcat.txt || true
 echo "===== Log dos testes ====="
-grep -E "BaixaVideosTest|Engine|Downloads|AndroidRuntime|FATAL" build/ci/logcat.txt | tail -n 300 || true
-adb pull /sdcard/Download/BaixaVideosCI build/ci/screenshots || true
+grep -E "CharisTest|Engine|Downloads|VideoInfo|PreviewController|AndroidRuntime|FATAL" build/ci/logcat.txt | tail -n 300 || true
+adb pull /sdcard/Download/CharisCI build/ci/screenshots || true
 exit $status

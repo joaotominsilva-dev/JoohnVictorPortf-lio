@@ -1,4 +1,4 @@
-name: Baixa Vídeos (Android)
+name: Charis Downloader (Android)
 
 on:
   push:
@@ -55,27 +55,27 @@ jobs:
           mkdir -p dist
           for f in app/build/outputs/apk/release/app-*-release.apk; do
             abi=$(basename "$f" | sed -E 's/^app-(.+)-release\.apk$/\1/')
-            cp "$f" "dist/BaixaVideos-$version-$abi.apk"
+            cp "$f" "dist/CharisDownloader-$version-$abi.apk"
           done
           ls -la dist
 
       - uses: actions/upload-artifact@v7
         with:
-          name: BaixaVideos-arm64-v8a
+          name: CharisDownloader-arm64-v8a
           path: baixa-videos/dist/*-arm64-v8a.apk
           compression-level: 0
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
-          name: BaixaVideos-armeabi-v7a
+          name: CharisDownloader-armeabi-v7a
           path: baixa-videos/dist/*-armeabi-v7a.apk
           compression-level: 0
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
-          name: BaixaVideos-x86
+          name: CharisDownloader-x86
           path: |
             baixa-videos/dist/*-x86.apk
             baixa-videos/dist/*-x86_64.apk
@@ -87,11 +87,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.apks.outputs.version }}
         run: |
-          tag="baixa-videos-v$VERSION"
+          tag="charis-downloader-v$VERSION"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/*.apk --clobber
           else
-            gh release create "$tag" dist/*.apk --target "$GITHUB_SHA" --title "Baixa Vídeos $VERSION" \
+            gh release create "$tag" dist/*.apk --target "$GITHUB_SHA" --title "Charis Downloader $VERSION" \
               --notes "Instale o APK arm64-v8a (serve em quase todos os celulares). Se não instalar, use o armeabi-v7a."
           fi
 
@@ -154,12 +154,12 @@ jobs:
 
       - uses: actions/download-artifact@v7
         with:
-          name: BaixaVideos-arm64-v8a
+          name: CharisDownloader-arm64-v8a
           path: novos-apks
 
       - uses: actions/download-artifact@v7
         with:
-          name: BaixaVideos-armeabi-v7a
+          name: CharisDownloader-armeabi-v7a
           path: novos-apks
 
       - uses: actions/download-artifact@v7
@@ -171,17 +171,17 @@ jobs:
         working-directory: .
         run: |
           mkdir -p baixa-videos/apk baixa-videos/docs/screenshots
-          rm -f baixa-videos/apk/*.apk
+          rm -f baixa-videos/apk/*.apk baixa-videos/docs/screenshots/*.png
           # nomes fixos (sem a versão) para os links de download não mudarem
           for f in novos-apks/*.apk; do
-            abi=$(basename "$f" .apk | sed -E 's/^BaixaVideos-[^-]+-//')
-            cp "$f" "baixa-videos/apk/BaixaVideos-$abi.apk"
+            abi=$(basename "$f" .apk | sed -E 's/^CharisDownloader-[^-]+-//')
+            cp "$f" "baixa-videos/apk/CharisDownloader-$abi.apk"
           done
           find teste-emulador -name '*.png' -exec cp {} baixa-videos/docs/screenshots/ \;
           ls -la baixa-videos/apk baixa-videos/docs/screenshots
           version=$(grep -oP 'versionName = "\K[^"]+' baixa-videos/app/build.gradle.kts)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add baixa-videos/apk baixa-videos/docs
-          git commit -m "Baixa Vídeos $version: APKs testados e capturas de tela"
+          git add -A baixa-videos/apk baixa-videos/docs
+          git commit -m "Charis Downloader $version: APKs testados e capturas de tela"
           git push origin "HEAD:${GITHUB_REF_NAME}"

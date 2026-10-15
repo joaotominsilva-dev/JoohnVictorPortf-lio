@@ -7,6 +7,7 @@ activityCompose = "1.13.0"
 coreKtx = "1.19.0"
 lifecycle = "2.11.0"
 coil = "2.7.0"
+media3 = "1.8.0"
 youtubedlAndroid = "0.18.1"
 junit = "4.13.2"
 androidxTest = "1.7.0"
@@ -26,6 +27,9 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
+androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+androidx-media3-exoplayer-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3" }
+androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 youtubedl-library = { module = "io.github.junkfood02.youtubedl-android:library", version.ref = "youtubedlAndroid" }
 youtubedl-ffmpeg = { module = "io.github.junkfood02.youtubedl-android:ffmpeg", version.ref = "youtubedlAndroid" }
 junit = { module = "junit:junit", version.ref = "junit" }
