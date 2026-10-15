@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -72,6 +73,8 @@ fun MainScreen(vm: MainViewModel) {
 
     BackHandler(enabled = vm.tab != Tab.HOME) { vm.tab = Tab.HOME }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    // Um aviso de uma aba não acompanha a pessoa para a próxima.
+    LaunchedEffect(vm.tab) { snackbar.currentSnackbarData?.dismiss() }
 
     fun message(text: String) {
         scope.launch { snackbar.showSnackbar(text) }
@@ -85,7 +88,11 @@ fun MainScreen(vm: MainViewModel) {
         when (vm.tab) {
             Tab.HOME -> HomeScreen(vm, onStarted = {
                 scope.launch {
-                    val result = snackbar.showSnackbar("Download iniciado", actionLabel = "Ver")
+                    val result = snackbar.showSnackbar(
+                        "Download iniciado",
+                        actionLabel = "Ver",
+                        duration = SnackbarDuration.Short,
+                    )
                     if (result == SnackbarResult.ActionPerformed) vm.tab = Tab.DOWNLOADS
                 }
             })

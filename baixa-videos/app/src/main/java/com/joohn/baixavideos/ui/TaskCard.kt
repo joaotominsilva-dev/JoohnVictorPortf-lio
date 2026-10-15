@@ -138,7 +138,7 @@ private fun StatusFor(task: DownloadTask) {
         TaskStatus.DONE -> StatusChip("Salvo", Charis.Charcoal, Charis.Cream)
         TaskStatus.FAILED -> StatusChip("Falhou", Charis.DangerSoft, Charis.Danger)
         TaskStatus.CANCELED -> StatusChip("Cancelado", Charis.Cream2, Charis.InkSoft)
-        else -> StatusChip(Formats.percent(task.progress) ?: "…", Charis.SageLight, Charis.Ink)
+        else -> Formats.percent(task.progress)?.let { StatusChip(it, Charis.SageLight, Charis.Ink) }
     }
 }
 

@@ -69,9 +69,10 @@ fun DownloadsScreen(onMessage: (String) -> Unit) {
     val running = tasks.count { it.status.isActive }
     val saved = tasks.count { it.status == TaskStatus.DONE }
     val shown = tasks.filter(filter::matches)
+    val savedText = if (saved == 1) "1 salvo" else "$saved salvos"
     val summary = when {
-        running > 0 -> "$running baixando · $saved salvos em ${MediaSaver.publicPath}"
-        saved > 0 -> "$saved salvos em ${MediaSaver.publicPath}"
+        running > 0 -> "$running baixando · $savedText em ${MediaSaver.publicPath}"
+        saved > 0 -> "$savedText em ${MediaSaver.publicPath}"
         else -> "Tudo fica em ${MediaSaver.publicPath} e aparece na galeria."
     }
 
