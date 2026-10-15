@@ -169,6 +169,12 @@ object Downloads {
     @Volatile
     var forcedTrimPlan: TrimPlan? = null
 
+    /** Quem recodifica o vídeo no aparelho. Só os testes forçam um dos dois. */
+    enum class CutEngine { TRANSFORMER, FFMPEG }
+
+    @Volatile
+    var forcedCutEngine: CutEngine? = null
+
     private val cutProcesses = ConcurrentHashMap<String, Process>()
 
     private sealed interface RunResult {
@@ -242,14 +248,48 @@ object Downloads {
         save(task, finals)
     }
 
-    /** Roda o corte local mostrando o avanço; devolve false se o FFmpeg não conseguiu. */
-    private fun cutLocally(task: DownloadTask, input: File, output: File, startSec: Long?, lengthSec: Long, from: Float): Boolean {
+    /**
+     * Roda o corte local mostrando o avanço; devolve false se não conseguiu. Vídeo vai primeiro
+     * pelo Media3 Transformer (codificador de hardware, recodifica só o começo); o FFmpeg é a reserva.
+     */
+    private suspend fun cutLocally(
+        task: DownloadTask,
+        input: File,
+        output: File,
+        startSec: Long?,
+        lengthSec: Long,
+        from: Float,
+    ): Boolean {
         val id = task.id
         mutate(id) {
             it.copy(status = TaskStatus.PROCESSING, stage = "Ajustando o corte", progress = from,
                 speedBps = null, etaSeconds = null)
         }
         var lastEmit = 0L
+        val video = !output.extension.equals("mp3", ignoreCase = true)
+        if (video && forcedCutEngine != CutEngine.FFMPEG) {
+            try {
+                val startMs = (startSec ?: 0L) * 1000
+                TransformerCutter.cut(app, input, output, startMs, startMs + lengthSec * 1000) { fraction ->
+                    val now = System.currentTimeMillis()
+                    if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+                        lastEmit = now
+                        mutate(id) { it.copy(progress = from + (1 - from) * fraction) }
+                    }
+                }
+                if (output.isFile && output.length() > 0L) return true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Transformer não cortou $id; usando o FFmpeg", e)
+                if (forcedCutEngine == CutEngine.TRANSFORMER) {
+                    lastCutError[id] = e
+                    return false
+                }
+            }
+            output.delete()
+            if (id in cancelled) return false
+        }
         return try {
             LocalCutter.cut(
                 app, input, output, startSec, lengthSec, task.quality,

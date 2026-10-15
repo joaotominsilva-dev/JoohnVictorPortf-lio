@@ -9,14 +9,14 @@ class CutException(message: String, val details: String) : Exception(message)
 
 /**
  * Corta (ou acerta as pontas de) um arquivo já baixado com o FFmpeg do youtubedl-android, no
- * próprio aparelho. O vídeo é codificado primeiro pelo codificador de hardware do celular
- * (MediaCodec, muitas vezes mais rápido); se o aparelho recusar, pelo x264 em modo rápido.
+ * próprio aparelho. Para vídeo é a reserva do [TransformerCutter] (x264 no modo mais rápido);
+ * para MP3 é o caminho normal.
  */
 internal object LocalCutter {
     private const val TAG = "LocalCutter"
     private const val TAIL_LINES = 25
 
-    private enum class VideoEncoder { HARDWARE, SOFTWARE }
+    private enum class VideoEncoder { SOFTWARE }
 
     /** O binário que o youtubedl-android extrai para a pasta de bibliotecas nativas. */
     fun binary(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libffmpeg.so")
@@ -46,7 +46,7 @@ internal object LocalCutter {
         onProgress: (Float) -> Unit,
     ) {
         val audio = output.extension.equals("mp3", ignoreCase = true)
-        val attempts = if (audio) listOf<VideoEncoder?>(null) else listOf(VideoEncoder.HARDWARE, VideoEncoder.SOFTWARE)
+        val attempts = if (audio) listOf<VideoEncoder?>(null) else listOf(VideoEncoder.SOFTWARE)
         val failures = mutableListOf<String>()
         for (encoder in attempts) {
             if (isCancelled()) throw CutException("Cancelado.", "")
@@ -79,17 +79,10 @@ internal object LocalCutter {
         addAll(listOf("-i", input.absolutePath, "-t", lengthSec.toString(), "-map_metadata", "0"))
         when (encoder) {
             null -> addAll(listOf("-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-id3v2_version", "3"))
-            VideoEncoder.HARDWARE -> addAll(
-                listOf(
-                    "-map", "0:v:0?", "-map", "0:a:0?",
-                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=nv12",
-                    "-c:v", "h264_mediacodec", "-ndk_codec", "1", "-b:v", bitrate(quality),
-                ),
-            )
             VideoEncoder.SOFTWARE -> addAll(
                 listOf(
                     "-map", "0:v:0?", "-map", "0:a:0?",
-                    "-c:v", "libx264", "-preset", "superfast", "-crf", "21", "-pix_fmt", "yuv420p",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", crf(quality), "-pix_fmt", "yuv420p",
                 ),
             )
         }
@@ -97,13 +90,8 @@ internal object LocalCutter {
         add(output.absolutePath)
     }
 
-    /** Taxa do codificador de hardware conforme a qualidade escolhida (ele não usa CRF). */
-    private fun bitrate(quality: VideoQuality): String = when (quality) {
-        VideoQuality.P480 -> "2500k"
-        VideoQuality.P720 -> "5000k"
-        VideoQuality.P1080 -> "8000k"
-        VideoQuality.BEST -> "16000k"
-    }
+    /** O modo mais rápido do x264 comprime menos; um CRF um pouco maior segura o tamanho. */
+    private fun crf(quality: VideoQuality): String = if (quality == VideoQuality.BEST) "20" else "23"
 
     private class Result(val code: Int, val tail: String)
 

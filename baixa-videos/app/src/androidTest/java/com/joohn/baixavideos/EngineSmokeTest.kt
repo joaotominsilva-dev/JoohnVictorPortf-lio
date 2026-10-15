@@ -1,6 +1,8 @@
 package com.joohn.baixavideos
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -85,7 +87,61 @@ class EngineSmokeTest {
         }
     }
 
-    /** Caminho principal do corte: baixa o arquivo inteiro e corta no aparelho com o FFmpeg. */
+    /**
+     * Corte que começa no meio de um grupo de quadros (quadro-chave em 0 s e 3 s, início em 1 s):
+     * o Transformer (hardware) e o FFmpeg (reserva) têm que entregar o mesmo primeiro quadro,
+     * e não o quadro-chave anterior.
+     */
+    @Test
+    fun cutStartsOnTheExactFrameWithBothEngines(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        try {
+            TestHttpServer(TestSupport.testAssets, "dashgop").use { server ->
+                val frames = mutableMapOf<Downloads.CutEngine, Bitmap>()
+                for (engine in Downloads.CutEngine.entries) {
+                    Downloads.forcedCutEngine = engine
+                    val started = System.currentTimeMillis()
+                    val task = TestSupport.download(context, server.url("Gop.mpd"), DownloadMode.VIDEO, trim = Trim(1, 3))
+                    val seconds = (System.currentTimeMillis() - started) / 1000.0
+                    assertEquals("$engine: ${task.errorDetails}", TaskStatus.DONE, task.status)
+                    val file = task.files.single()
+                    val ms = durationMs(file)
+                    Log.i(TAG, "Corte exato $engine: ${file.name} | $ms ms | ${videoMime(file)} | ${seconds}s")
+                    assertTrue("$engine duração: $ms ms", ms in 1700L..2300L)
+                    frames[engine] = firstFrame(file)
+                }
+                val diff = meanDifference(frames.getValue(Downloads.CutEngine.TRANSFORMER), frames.getValue(Downloads.CutEngine.FFMPEG))
+                Log.i(TAG, "Diferença do primeiro quadro (Transformer x FFmpeg): $diff")
+                assertTrue("o Transformer começou em outro quadro (diferença $diff)", diff < 3.5)
+            }
+        } finally {
+            Downloads.forcedCutEngine = null
+        }
+    }
+
+    private fun firstFrame(file: SavedFile): Bitmap {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, Uri.parse(file.uri))
+            return requireNotNull(retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST)) { "sem quadro em ${file.name}" }
+        } finally {
+            retriever.release()
+        }
+    }
+
+    /** Diferença média de brilho (0 a 255) entre duas imagens reduzidas a 64x36. */
+    private fun meanDifference(a: Bitmap, b: Bitmap): Double {
+        val sa = Bitmap.createScaledBitmap(a, 64, 36, true)
+        val sb = Bitmap.createScaledBitmap(b, 64, 36, true)
+        var total = 0.0
+        for (y in 0 until 36) for (x in 0 until 64) {
+            fun luma(c: Int) = 0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)
+            total += kotlin.math.abs(luma(sa.getPixel(x, y)) - luma(sb.getPixel(x, y)))
+        }
+        return total / (64 * 36)
+    }
+
+    /** Reserva do corte: baixa o arquivo inteiro e corta no aparelho. */
     @Test
     fun trimsByDownloadingThenCuttingOnDevice(): Unit = runBlocking {
         TestSupport.awaitEngine(context)

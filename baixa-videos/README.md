@@ -52,11 +52,12 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
   (o TikTok responde 403 fora do app dele), o app baixa uma cópia leve (até 480p) de vídeos de até
   10 minutos e toca a cópia.
 - O corte baixa só o trecho com `--download-sections`, copiando os dados sem recodificar (rápido).
-  O arquivo copiado começa no quadro-chave anterior ao início; o FFmpeg do aparelho então recodifica
-  o trecho com o codificador de hardware do celular (`h264_mediacodec`, bem mais rápido que o
-  processador) e o resultado começa e termina no segundo escolhido. Se o aparelho recusar o
-  codificador de hardware, o app usa o x264 em modo rápido. Se baixar só o trecho falhar ou ficar
-  60 segundos sem resposta, o app baixa o vídeo inteiro e corta no aparelho.
+  O arquivo copiado começa no quadro-chave anterior ao início, então o app acerta o começo com o
+  Media3 Transformer: ele usa o codificador de hardware do celular e, com a otimização de corte,
+  recodifica só até o próximo quadro-chave e copia o resto. O resultado começa e termina no segundo
+  escolhido. Se o Transformer não conseguir, o FFmpeg recodifica o trecho com o x264 no modo mais
+  rápido. Se baixar só o trecho falhar ou ficar 60 segundos sem resposta, o app baixa o vídeo
+  inteiro e corta no aparelho.
 - A busca usa `ytsearch` do yt-dlp com `--flat-playlist`, que traz só a lista de resultados.
 - Cada download roda numa pasta privada do app e o resultado é copiado para `Download/Charis`.
 - O progresso vem de linhas próprias pedidas ao yt-dlp (`--print` e `--progress-template` em JSON),
@@ -86,8 +87,8 @@ O workflow `.github/workflows/baixa-videos.yml`:
 - compila os APKs e anexa como artefatos a cada push;
 - roda os testes instrumentados num emulador Android 14 (motor, download e MP3 de um vídeo local,
   corte de vídeo e de áudio pelos dois caminhos com conferência da duração, prévia do link e do
-  player, e tentativas com links reais de download, corte e busca), percorre as telas e guarda log
-  e capturas;
+  player, corte começando no meio de um grupo de quadros conferido quadro a quadro, e tentativas
+  com links reais de download, corte e busca), percorre as telas e guarda log e capturas;
 - se os testes passarem e o workflow for rodado com a opção "salvar" marcada (ou o commit tiver
   `[salvar-apk]` na mensagem), grava os APKs em `apk/` e as capturas de tela em `docs/screenshots/`;
 - em `main`, publica os APKs numa Release.
