@@ -31,9 +31,8 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
   resultado e ele vira o link do download (com prévia, qualidade e corte).
 - Escolha **Vídeo** (Máxima, 1080p, 720p ou 480p) ou **Áudio MP3** e toque em **Baixar**.
 - **Cortar trecho:** ligue o corte, arraste as duas alças (ou toque em Início e Fim para digitar o
-  tempo exato) e toque no play da prévia para assistir só a parte que vai ser baixada. Vídeos de até
-  15 minutos (e áudios de até 3 horas) são baixados inteiros e cortados no próprio celular, com
-  barra de progresso; nos mais longos o app baixa só o trecho e, se o site travar, cai no outro jeito.
+  tempo exato) e toque no play da prévia para assistir só a parte que vai ser baixada. O app baixa
+  só o trecho e acerta o corte no próprio celular, com barra de progresso.
 - No Instagram, YouTube ou TikTok, toque em **Compartilhar** e escolha **Charis**: abre uma janela por
   cima do app com as mesmas opções (formato, qualidade e corte). Nada começa sem você escolher.
 - Os arquivos ficam em `Download/Charis` e aparecem na galeria e no app de música.
@@ -52,10 +51,12 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
   resolução baixa que o player da prévia (AndroidX Media3) toca direto do site. Quando o site recusa
   (o TikTok responde 403 fora do app dele), o app baixa uma cópia leve (até 480p) de vídeos de até
   10 minutos e toca a cópia.
-- O corte tem dois caminhos. No principal, o yt-dlp baixa o arquivo inteiro e o FFmpeg do aparelho
-  corta e recodifica só o trecho (H.264 + AAC ou MP3), começando e terminando no segundo escolhido.
-  Em vídeos longos o app tenta antes `--download-sections` (o FFmpeg baixa só o trecho); se ficar
-  60 segundos sem resposta ou falhar, volta para o caminho principal.
+- O corte baixa só o trecho com `--download-sections`, copiando os dados sem recodificar (rápido).
+  O arquivo copiado começa no quadro-chave anterior ao início; o FFmpeg do aparelho então recodifica
+  o trecho com o codificador de hardware do celular (`h264_mediacodec`, bem mais rápido que o
+  processador) e o resultado começa e termina no segundo escolhido. Se o aparelho recusar o
+  codificador de hardware, o app usa o x264 em modo rápido. Se baixar só o trecho falhar ou ficar
+  60 segundos sem resposta, o app baixa o vídeo inteiro e corta no aparelho.
 - A busca usa `ytsearch` do yt-dlp com `--flat-playlist`, que traz só a lista de resultados.
 - Cada download roda numa pasta privada do app e o resultado é copiado para `Download/Charis`.
 - O progresso vem de linhas próprias pedidas ao yt-dlp (`--print` e `--progress-template` em JSON),

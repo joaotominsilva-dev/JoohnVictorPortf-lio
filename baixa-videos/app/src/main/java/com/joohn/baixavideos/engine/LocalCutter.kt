@@ -8,13 +8,15 @@ import java.io.InputStreamReader
 class CutException(message: String, val details: String) : Exception(message)
 
 /**
- * Corta um arquivo já baixado com o FFmpeg do youtubedl-android, no próprio aparelho.
- * É o caminho mais seguro para o corte: o download inteiro usa o baixador do yt-dlp
- * (rápido, com progresso e novas tentativas) e o corte local não depende da rede.
+ * Corta (ou acerta as pontas de) um arquivo já baixado com o FFmpeg do youtubedl-android, no
+ * próprio aparelho. O vídeo é codificado primeiro pelo codificador de hardware do celular
+ * (MediaCodec, muitas vezes mais rápido); se o aparelho recusar, pelo x264 em modo rápido.
  */
 internal object LocalCutter {
     private const val TAG = "LocalCutter"
     private const val TAIL_LINES = 25
+
+    private enum class VideoEncoder { HARDWARE, SOFTWARE }
 
     /** O binário que o youtubedl-android extrai para a pasta de bibliotecas nativas. */
     fun binary(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libffmpeg.so")
@@ -28,40 +30,94 @@ internal object LocalCutter {
             .joinToString(":") { it.absolutePath }
 
     /**
-     * Grava em [output] só o trecho [trim] de [input]. O vídeo sai em H.264 + AAC (MP4) e o
-     * áudio em MP3; recodificar as pontas é o que faz o corte cair no segundo exato.
-     * Bloqueia até terminar. [register] recebe o processo para que ele possa ser cancelado.
+     * Grava em [output] [lengthSec] segundos de [input], a partir de [startSec] (ou do começo do
+     * arquivo, quando ele já é o trecho baixado). O MP4 sai em H.264 + AAC e o MP3 em MP3.
+     * Recodificar é o que faz o corte cair no segundo exato. Bloqueia até terminar.
      */
     fun cut(
         context: Context,
         input: File,
         output: File,
-        trim: Trim,
+        startSec: Long?,
+        lengthSec: Long,
+        quality: VideoQuality,
         register: (Process) -> Unit,
+        isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
     ) {
         val audio = output.extension.equals("mp3", ignoreCase = true)
-        val args = mutableListOf(
-            binary(context).absolutePath, "-y", "-hide_banner", "-nostdin",
-            "-ss", trim.startSec.toString(), "-i", input.absolutePath, "-t", trim.lengthSec.toString(),
-            "-map_metadata", "0",
-        )
-        args += if (audio) {
-            listOf("-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-id3v2_version", "3")
-        } else {
-            listOf(
-                "-map", "0:v:0?", "-map", "0:a:0?",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-                "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+        val attempts = if (audio) listOf<VideoEncoder?>(null) else listOf(VideoEncoder.HARDWARE, VideoEncoder.SOFTWARE)
+        val failures = mutableListOf<String>()
+        for (encoder in attempts) {
+            if (isCancelled()) throw CutException("Cancelado.", "")
+            val started = System.currentTimeMillis()
+            val result = run(context, args(context, input, output, startSec, lengthSec, quality, encoder), lengthSec, register, onProgress)
+            val seconds = (System.currentTimeMillis() - started) / 1000.0
+            if (result.code == 0 && output.isFile && output.length() > 0L) {
+                Log.i(TAG, "Corte pronto com ${encoder ?: "mp3"} em ${seconds}s: ${output.name}")
+                return
+            }
+            Log.w(TAG, "Corte com ${encoder ?: "mp3"} falhou (código ${result.code}) em ${seconds}s:\n${result.tail}")
+            failures += "[${encoder ?: "mp3"}] código ${result.code}\n${result.tail}"
+            output.delete()
+        }
+        throw CutException("Não consegui cortar o trecho no aparelho.", failures.joinToString("\n\n"))
+    }
+
+    private fun args(
+        context: Context,
+        input: File,
+        output: File,
+        startSec: Long?,
+        lengthSec: Long,
+        quality: VideoQuality,
+        encoder: VideoEncoder?,
+    ): List<String> = buildList {
+        add(binary(context).absolutePath)
+        addAll(listOf("-y", "-hide_banner", "-nostdin"))
+        if (startSec != null && startSec > 0) addAll(listOf("-ss", startSec.toString()))
+        addAll(listOf("-i", input.absolutePath, "-t", lengthSec.toString(), "-map_metadata", "0"))
+        when (encoder) {
+            null -> addAll(listOf("-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-id3v2_version", "3"))
+            VideoEncoder.HARDWARE -> addAll(
+                listOf(
+                    "-map", "0:v:0?", "-map", "0:a:0?",
+                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=nv12",
+                    "-c:v", "h264_mediacodec", "-ndk_codec", "1", "-b:v", bitrate(quality),
+                ),
+            )
+            VideoEncoder.SOFTWARE -> addAll(
+                listOf(
+                    "-map", "0:v:0?", "-map", "0:a:0?",
+                    "-c:v", "libx264", "-preset", "superfast", "-crf", "21", "-pix_fmt", "yuv420p",
+                ),
             )
         }
-        args += output.absolutePath
+        if (encoder != null) addAll(listOf("-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"))
+        add(output.absolutePath)
+    }
 
+    /** Taxa do codificador de hardware conforme a qualidade escolhida (ele não usa CRF). */
+    private fun bitrate(quality: VideoQuality): String = when (quality) {
+        VideoQuality.P480 -> "2500k"
+        VideoQuality.P720 -> "5000k"
+        VideoQuality.P1080 -> "8000k"
+        VideoQuality.BEST -> "16000k"
+    }
+
+    private class Result(val code: Int, val tail: String)
+
+    private fun run(
+        context: Context,
+        args: List<String>,
+        lengthSec: Long,
+        register: (Process) -> Unit,
+        onProgress: (Float) -> Unit,
+    ): Result {
         val builder = ProcessBuilder(args).redirectErrorStream(true)
         builder.environment()["LD_LIBRARY_PATH"] = libraryPath(context)
         val process = builder.start()
         register(process)
-
         val tail = ArrayDeque<String>()
         InputStreamReader(process.inputStream, Charsets.UTF_8).use { reader ->
             val line = StringBuilder()
@@ -70,11 +126,13 @@ internal object LocalCutter {
                 if (c == -1 || c == '\r'.code || c == '\n'.code) {
                     if (line.isNotEmpty()) {
                         val text = line.toString()
-                        OutputParser.ffmpegTime(text)?.let { onProgress((it / trim.lengthSec).toFloat().coerceIn(0f, 1f)) }
-                            ?: run {
-                                tail.addLast(text)
-                                if (tail.size > TAIL_LINES) tail.removeFirst()
-                            }
+                        val time = OutputParser.ffmpegTime(text)
+                        if (time != null) {
+                            onProgress((time / lengthSec.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f))
+                        } else {
+                            tail.addLast(text)
+                            if (tail.size > TAIL_LINES) tail.removeFirst()
+                        }
                         line.setLength(0)
                     }
                     if (c == -1) break
@@ -83,11 +141,6 @@ internal object LocalCutter {
                 }
             }
         }
-        val code = process.waitFor()
-        if (code != 0 || !output.isFile || output.length() == 0L) {
-            val details = tail.joinToString("\n")
-            Log.w(TAG, "Corte falhou (código $code): $details")
-            throw CutException("Não consegui cortar o trecho no aparelho (FFmpeg, código $code).", details)
-        }
+        return Result(process.waitFor(), tail.joinToString("\n"))
     }
 }

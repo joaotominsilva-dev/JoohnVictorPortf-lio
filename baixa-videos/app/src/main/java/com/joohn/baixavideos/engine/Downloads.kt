@@ -46,6 +46,9 @@ object Downloads {
     /** No download completo seguido de corte, a barra vai até 85% baixando e o resto cortando. */
     private const val DOWNLOAD_SHARE = 0.85f
 
+    /** Baixando só o trecho, a barra vai até 70% e o acerto do corte ocupa o resto. */
+    private const val SECTION_SHARE = 0.7f
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
     val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
@@ -186,10 +189,16 @@ object Downloads {
             }
             return
         }
-        when (forcedTrimPlan ?: planFor(task)) {
+        when (forcedTrimPlan ?: TrimPlan.SECTIONS) {
             TrimPlan.FULL_THEN_CUT -> downloadThenCut(task, trim, File(workDir, "inteiro"))
-            TrimPlan.SECTIONS -> when (val result = runYtDlp(task, workDir, sections = true)) {
-                is RunResult.Done -> save(task, result.files)
+            TrimPlan.SECTIONS -> when (
+                val result = runYtDlp(
+                    task, workDir, sections = true,
+                    progressShare = if (task.mode == DownloadMode.VIDEO) SECTION_SHARE else 1f,
+                )
+            ) {
+                is RunResult.Done ->
+                    if (task.mode == DownloadMode.VIDEO) finishSections(task, trim, result.files, workDir) else save(task, result.files)
                 RunResult.Canceled -> mutate(id) { it.canceled() }
                 is RunResult.Failed -> if (result.stalled || result.reachedDownload) {
                     // O site respondeu, mas baixar só o trecho travou ou falhou: baixa inteiro e corta aqui.
@@ -207,14 +216,64 @@ object Downloads {
     }
 
     /**
-     * Vídeos curtos (e áudio de até 3 h) são baixados inteiros e cortados no aparelho: é o caminho
-     * mais confiável. Nos longos, baixar só o trecho economiza dados; se travar, cai no outro caminho.
+     * O trecho baixado por cópia começa no quadro-chave anterior ao início (o MP4 marca onde
+     * começar a mostrar). Recodificar no aparelho deixa o arquivo começando no segundo exato em
+     * qualquer player; se não der, o arquivo copiado fica como está.
      */
-    private fun planFor(task: DownloadTask): TrimPlan {
-        val duration = task.durationSec ?: return TrimPlan.SECTIONS
-        val limit = if (task.mode == DownloadMode.AUDIO) 3 * 3600 else 15 * 60
-        return if (duration <= limit) TrimPlan.FULL_THEN_CUT else TrimPlan.SECTIONS
+    private suspend fun finishSections(task: DownloadTask, trim: Trim, files: List<File>, workDir: File) {
+        val id = task.id
+        val finals = files.map { input ->
+            if (id in cancelled) {
+                mutate(id) { it.canceled() }
+                return
+            }
+            val output = File(File(workDir, "corte").apply { mkdirs() }, input.name)
+            if (cutLocally(task, input, output, startSec = null, trim.lengthSec, SECTION_SHARE)) {
+                output
+            } else {
+                lastCutError.remove(id)
+                input
+            }
+        }
+        if (id in cancelled) {
+            mutate(id) { it.canceled() }
+            return
+        }
+        save(task, finals)
     }
+
+    /** Roda o corte local mostrando o avanço; devolve false se o FFmpeg não conseguiu. */
+    private fun cutLocally(task: DownloadTask, input: File, output: File, startSec: Long?, lengthSec: Long, from: Float): Boolean {
+        val id = task.id
+        mutate(id) {
+            it.copy(status = TaskStatus.PROCESSING, stage = "Ajustando o corte", progress = from,
+                speedBps = null, etaSeconds = null)
+        }
+        var lastEmit = 0L
+        return try {
+            LocalCutter.cut(
+                app, input, output, startSec, lengthSec, task.quality,
+                register = { cutProcesses[id] = it },
+                isCancelled = { id in cancelled },
+                onProgress = { fraction ->
+                    val now = System.currentTimeMillis()
+                    if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+                        lastEmit = now
+                        mutate(id) { it.copy(progress = from + (1 - from) * fraction) }
+                    }
+                },
+            )
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Corte local falhou para $id", e)
+            lastCutError[id] = e
+            false
+        } finally {
+            cutProcesses.remove(id)
+        }
+    }
+
+    private val lastCutError = ConcurrentHashMap<String, Exception>()
 
     private suspend fun downloadThenCut(task: DownloadTask, trim: Trim, dir: File) {
         val id = task.id
@@ -240,33 +299,15 @@ object Downloads {
             }
             val ext = if (task.mode == DownloadMode.AUDIO) "mp3" else "mp4"
             val output = File(File(dir, "corte").apply { mkdirs() }, input.nameWithoutExtension.take(120) + section + "." + ext)
-            mutate(id) {
-                it.copy(status = TaskStatus.PROCESSING, stage = "Cortando o trecho", progress = DOWNLOAD_SHARE,
-                    speedBps = null, etaSeconds = null)
-            }
-            var lastEmit = 0L
-            try {
-                LocalCutter.cut(
-                    app, input, output, trim,
-                    register = { cutProcesses[id] = it },
-                    onProgress = { fraction ->
-                        val now = System.currentTimeMillis()
-                        if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
-                            lastEmit = now
-                            mutate(id) { it.copy(progress = DOWNLOAD_SHARE + (1 - DOWNLOAD_SHARE) * fraction) }
-                        }
-                    },
-                )
-            } catch (e: Exception) {
+            if (!cutLocally(task, input, output, trim.startSec, trim.lengthSec, DOWNLOAD_SHARE)) {
                 if (id in cancelled) {
                     mutate(id) { it.canceled() }
                     return
                 }
-                val details = (e as? CutException)?.details ?: e.message.orEmpty()
-                fail(id, task, e.message ?: "Falha ao cortar", details, friendly = e.message ?: "Não consegui cortar o trecho.")
+                val error = lastCutError.remove(id)
+                val details = (error as? CutException)?.details ?: error?.message.orEmpty()
+                fail(id, task, error?.message ?: "Falha ao cortar", details, friendly = "Não consegui cortar o trecho no aparelho.")
                 return
-            } finally {
-                cutProcesses.remove(id)
             }
             input.delete()
             cuts += output
@@ -413,7 +454,7 @@ object Downloads {
             is OutputParser.Event.FfmpegTime -> {
                 val length = run.trimLengthSec ?: return
                 if (!run.shouldEmit()) return
-                val fraction = (event.seconds / length).toFloat().coerceIn(0f, 0.99f)
+                val fraction = (event.seconds / length).toFloat().coerceIn(0f, 0.99f) * run.share
                 mutate(id) {
                     it.copy(status = TaskStatus.DOWNLOADING, stage = run.label("Baixando o trecho"),
                         progress = fraction, speedBps = null, etaSeconds = null)
@@ -459,11 +500,9 @@ object Downloads {
             addOption("-o", File(workDir, "%(title).70B [%(id)s]$section.%(ext)s").absolutePath)
             if (cookies != null) addOption("--cookies", cookies.absolutePath)
             if (trim != null) {
-                // Baixa só o trecho; o FFmpeg recorta e recodifica as pontas para o corte cair no
-                // segundo exato (sem isso ele volta até o quadro-chave anterior).
+                // Baixa só o trecho, copiando os dados sem recodificar (rápido). O início exato é
+                // acertado depois, no aparelho, pelo codificador de hardware.
                 addOption("--download-sections", "*${trim.startSec}-${trim.endSec}")
-                addOption("--force-keyframes-at-cuts")
-                addOption("--downloader-args", "ffmpeg_o:-preset veryfast -crf 20")
             }
             when (task.mode) {
                 DownloadMode.VIDEO -> {
