@@ -156,11 +156,17 @@ class EngineSmokeTest {
         var reported: Double? = null
         val controller = withContext(Dispatchers.Main) { PreviewController(context, info) { reported = it } }
         try {
-            withTimeoutOrNull(30.seconds) {
-                while (withContext(Dispatchers.Main) { !controller.failed && reported == null }) delay(250)
+            val started = System.currentTimeMillis()
+            var usedCopy = false
+            withTimeoutOrNull(120.seconds) {
+                while (withContext(Dispatchers.Main) { !controller.failed && reported == null }) {
+                    if (withContext(Dispatchers.Main) { controller.loadingCopy }) usedCopy = true
+                    delay(250)
+                }
             }
             val failed = withContext(Dispatchers.Main) { controller.failed }
-            Log.i(TAG, "REAL PREVIEW $name: falhou=$failed duração=$reported")
+            val seconds = (System.currentTimeMillis() - started) / 1000
+            Log.i(TAG, "REAL PREVIEW $name: falhou=$failed duração=$reported cópia=$usedCopy em ${seconds}s")
         } finally {
             withContext(Dispatchers.Main) { controller.release() }
         }

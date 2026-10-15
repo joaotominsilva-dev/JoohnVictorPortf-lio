@@ -239,7 +239,10 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
 
     val canDownload: Boolean get() = link != null && trimProblem == null
 
-    fun toStart(): PendingStart? = link?.let { PendingStart(it, mode, quality, trim, loadedInfo) }
+    fun toStart(): PendingStart? = link?.let {
+        val info = loadedInfo?.let { i -> i.copy(durationSec = i.durationSec ?: playerDurationSec) }
+        PendingStart(it, mode, quality, trim, info)
+    }
 
     fun reset() = updateText("")
 

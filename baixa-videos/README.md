@@ -49,7 +49,9 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
 - O app atualiza o yt-dlp direto das releases do GitHub (a cada 12 h, ou pelo botão em Ajustes).
   Isso é o que mantém YouTube, Instagram e TikTok funcionando quando os sites mudam.
 - A prévia do link pede ao yt-dlp só os dados do vídeo (`--skip-download`), incluindo um endereço em
-  resolução baixa que o player da prévia (AndroidX Media3) toca direto do site.
+  resolução baixa que o player da prévia (AndroidX Media3) toca direto do site. Quando o site recusa
+  (o TikTok responde 403 fora do app dele), o app baixa uma cópia leve (até 480p) de vídeos de até
+  10 minutos e toca a cópia.
 - O corte tem dois caminhos. No principal, o yt-dlp baixa o arquivo inteiro e o FFmpeg do aparelho
   corta e recodifica só o trecho (H.264 + AAC ou MP3), começando e terminando no segundo escolhido.
   Em vídeos longos o app tenta antes `--download-sections` (o FFmpeg baixa só o trecho); se ficar

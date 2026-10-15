@@ -10,6 +10,7 @@ import kotlinx.coroutines.runInterruptible
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -48,6 +49,8 @@ object YouTubeSearch {
             addOption("--playlist-items", "$from:$to")
             addOption("--cache-dir", File(app.cacheDir, "yt-dlp").absolutePath)
             addOption("--print", "$PREFIX%(.{id,title,channel,uploader,duration,view_count,live_status})j")
+            // Sem isto o YouTube responde em inglês e traduz títulos de vídeos brasileiros.
+            languageCode()?.let { addOption("--extractor-args", "youtube:lang=$it") }
         }
         val lines = ConcurrentLinkedQueue<String>()
         val failure = Engine.withProcess {
@@ -70,6 +73,23 @@ object YouTubeSearch {
         }
         return results
     }
+
+    /** Código de idioma do aparelho que o yt-dlp aceita para o YouTube (pt-BR vira "pt"). */
+    internal fun languageCode(locale: Locale = Locale.getDefault()): String? {
+        val lang = locale.language.let { if (it == "he") "iw" else it }
+        val candidates = listOf("$lang-${locale.country}", if (lang == "zh") "zh-CN" else lang)
+        return candidates.firstOrNull { it in SUPPORTED_LANGS }
+    }
+
+    // Lista do próprio yt-dlp (_SUPPORTED_LANG_CODES): um código fora dela faz a extração falhar.
+    private val SUPPORTED_LANGS = setOf(
+        "af", "az", "id", "ms", "bs", "ca", "cs", "da", "de", "et", "en-IN", "en-GB", "en", "es",
+        "es-419", "es-US", "eu", "fil", "fr", "fr-CA", "gl", "hr", "zu", "is", "it", "sw", "lv",
+        "lt", "hu", "nl", "no", "uz", "pl", "pt-PT", "pt", "ro", "sq", "sk", "sl", "sr-Latn", "fi",
+        "sv", "vi", "tr", "be", "bg", "ky", "kk", "mk", "mn", "ru", "sr", "uk", "el", "hy", "iw",
+        "ur", "ar", "fa", "ne", "mr", "hi", "as", "bn", "pa", "gu", "or", "ta", "te", "kn", "ml",
+        "si", "th", "lo", "my", "ka", "am", "km", "zh-CN", "zh-TW", "zh-HK", "ja", "ko",
+    )
 
     internal fun parse(json: String): SearchResult? = try {
         val o = JSONObject(json)

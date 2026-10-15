@@ -245,11 +245,20 @@ private fun PreviewBox(info: VideoInfo?, controller: PreviewController?, draft: 
                     .background(Charis.Ink.copy(alpha = 0.72f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
-            controller.buffering && !controller.playing -> CircularProgressIndicator(
-                color = Charis.Cream,
-                strokeWidth = 2.5.dp,
-                modifier = Modifier.size(28.dp),
-            )
+            controller.buffering && !controller.playing -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = Charis.Cream, strokeWidth = 2.5.dp, modifier = Modifier.size(28.dp))
+                if (controller.loadingCopy) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Preparando a prévia…",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Charis.Cream,
+                        modifier = Modifier
+                            .background(Charis.Ink.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
             else -> Box(
                 Modifier
                     .size(46.dp)

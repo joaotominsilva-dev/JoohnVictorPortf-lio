@@ -24,18 +24,38 @@ import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import android.net.Uri
+import com.joohn.baixavideos.engine.PreviewFile
 import com.joohn.baixavideos.engine.PreviewStream
 import com.joohn.baixavideos.engine.VideoInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Player da prévia do corte: toca direto do site (sem baixar) o endereço que o yt-dlp
- * encontrou, com os mesmos cabeçalhos que ele usaria.
+ * encontrou, com os mesmos cabeçalhos que ele usaria. Se o site recusar (o TikTok responde 403
+ * fora do app dele), baixa uma cópia leve do vídeo, se ele for curto, e toca a cópia.
  */
 @Stable
 @OptIn(UnstableApi::class)
-class PreviewController(context: Context, info: VideoInfo, private val onDuration: (Double) -> Unit) : Player.Listener {
+class PreviewController(context: Context, private val info: VideoInfo, private val onDuration: (Double) -> Unit) :
+    Player.Listener {
+    private val appContext = context.applicationContext
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val canUseCopy = (info.durationSec ?: 0.0) <= COPY_MAX_SEC
+    private var triedCopy = false
+    private var openedAt = System.currentTimeMillis()
+
     val player: ExoPlayer?
+
+    /** Baixando a cópia leve para a prévia. */
+    var loadingCopy by mutableStateOf(false)
+        private set
 
     var videoAspect by mutableFloatStateOf(0f)
         private set
@@ -55,16 +75,43 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
 
     init {
         val source = buildSource(info.preview)
-        player = if (source == null) {
+        player = if (source == null && !canUseCopy) {
             failed = true
             null
         } else {
-            ExoPlayer.Builder(context.applicationContext).build().apply {
+            ExoPlayer.Builder(appContext).build().apply {
                 addListener(this@PreviewController)
-                setMediaSource(source)
                 playWhenReady = false
-                prepare()
+                if (source != null) {
+                    setMediaSource(source)
+                    prepare()
+                }
             }
+        }
+        if (player != null && source == null) useCopy()
+    }
+
+    /** Troca o endereço do site por uma cópia leve baixada pelo yt-dlp. */
+    private fun useCopy() {
+        val p = player ?: return
+        triedCopy = true
+        loadingCopy = true
+        buffering = true
+        scope.launch {
+            val file = withTimeoutOrNull(COPY_TIMEOUT_MS) {
+                runCatching { PreviewFile.fetch(appContext, info.url) }
+                    .onFailure { Log.w(TAG, "Cópia da prévia falhou", it) }
+                    .getOrNull()
+            }
+            loadingCopy = false
+            if (file == null) {
+                failed = true
+                return@launch
+            }
+            openedAt = System.currentTimeMillis()
+            p.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            p.prepare()
+            p.seekTo(positionMs)
         }
     }
 
@@ -94,6 +141,7 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
     }
 
     fun release() {
+        scope.cancel()
         player?.removeListener(this)
         player?.release()
     }
@@ -103,14 +151,17 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
      * prévia não abrir em [OPEN_TIMEOUT_MS], desiste (o corte funciona sem ela).
      */
     suspend fun track() {
-        val openedAt = System.currentTimeMillis()
         while (true) {
             val p = player ?: return
-            if (!ready && !failed && System.currentTimeMillis() - openedAt > OPEN_TIMEOUT_MS) {
+            if (!ready && !failed && !loadingCopy && System.currentTimeMillis() - openedAt > OPEN_TIMEOUT_MS) {
                 Log.w(TAG, "Prévia não abriu em ${OPEN_TIMEOUT_MS / 1000}s")
-                failed = true
-                p.stop()
-                return
+                if (canUseCopy && !triedCopy) {
+                    p.stop()
+                    useCopy()
+                } else {
+                    failed = true
+                    p.stop()
+                }
             }
             if (p.isPlaying) {
                 positionMs = p.currentPosition
@@ -148,12 +199,16 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
 
     override fun onPlayerError(error: PlaybackException) {
         Log.w(TAG, "Prévia indisponível: ${error.errorCodeName}", error)
-        failed = true
+        if (canUseCopy && !triedCopy) useCopy() else failed = true
     }
 
     private companion object {
         const val TAG = "PreviewController"
         const val OPEN_TIMEOUT_MS = 25_000L
+        const val COPY_TIMEOUT_MS = 120_000L
+
+        /** Só vale baixar uma cópia para a prévia em vídeos de até 10 minutos (ou sem duração). */
+        const val COPY_MAX_SEC = 600.0
 
         fun buildSource(streams: List<PreviewStream>): MediaSource? {
             // Vídeo e áudio de um mesmo manifesto DASH viram uma fonte só.
