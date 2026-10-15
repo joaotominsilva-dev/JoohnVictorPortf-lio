@@ -339,7 +339,7 @@ object Downloads {
         return RunResult.Done(produced)
     }
 
-    private fun save(task: DownloadTask, produced: List<File>) {
+    private suspend fun save(task: DownloadTask, produced: List<File>) {
         val id = task.id
         mutate(id) {
             it.copy(status = TaskStatus.SAVING, stage = "Salvando em ${MediaSaver.publicPath}", progress = null,
