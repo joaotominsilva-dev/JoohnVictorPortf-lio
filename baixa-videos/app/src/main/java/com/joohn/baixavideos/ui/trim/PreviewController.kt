@@ -51,6 +51,7 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
         private set
 
     private var stopAtMs = Long.MAX_VALUE
+    private var ready = false
 
     init {
         val source = buildSource(info.preview)
@@ -97,10 +98,20 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
         player?.release()
     }
 
-    /** Acompanha a posição para a interface e interrompe a reprodução no fim do trecho. */
+    /**
+     * Acompanha a posição para a interface e interrompe a reprodução no fim do trecho. Se a
+     * prévia não abrir em [OPEN_TIMEOUT_MS], desiste (o corte funciona sem ela).
+     */
     suspend fun track() {
+        val openedAt = System.currentTimeMillis()
         while (true) {
             val p = player ?: return
+            if (!ready && !failed && System.currentTimeMillis() - openedAt > OPEN_TIMEOUT_MS) {
+                Log.w(TAG, "Prévia não abriu em ${OPEN_TIMEOUT_MS / 1000}s")
+                failed = true
+                p.stop()
+                return
+            }
             if (p.isPlaying) {
                 positionMs = p.currentPosition
                 if (positionMs >= stopAtMs) {
@@ -119,6 +130,7 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
     override fun onPlaybackStateChanged(playbackState: Int) {
         buffering = playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_IDLE
         if (playbackState == Player.STATE_READY) {
+            ready = true
             val duration = player?.duration ?: C.TIME_UNSET
             if (duration != C.TIME_UNSET && duration > 0) onDuration(duration / 1000.0)
         }
@@ -141,6 +153,7 @@ class PreviewController(context: Context, info: VideoInfo, private val onDuratio
 
     private companion object {
         const val TAG = "PreviewController"
+        const val OPEN_TIMEOUT_MS = 25_000L
 
         fun buildSource(streams: List<PreviewStream>): MediaSource? {
             // Vídeo e áudio de um mesmo manifesto DASH viram uma fonte só.

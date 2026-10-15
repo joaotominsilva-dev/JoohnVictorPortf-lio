@@ -51,6 +51,7 @@ internal object History {
             put("trimStart", it.startSec)
             put("trimEnd", it.endSec)
         }
+        task.durationSec?.let { put("durationSec", it) }
         put("title", task.title)
         put("uploader", task.uploader)
         put("thumbnail", task.thumbnail)
@@ -79,6 +80,7 @@ internal object History {
             } else {
                 null
             },
+            durationSec = if (o.has("durationSec")) o.optDouble("durationSec").takeIf { !it.isNaN() } else null,
             status = TaskStatus.DONE,
             title = o.text("title"),
             uploader = o.text("uploader"),

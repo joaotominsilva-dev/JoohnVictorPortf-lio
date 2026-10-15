@@ -55,6 +55,9 @@ internal object OutputParser {
         }
 
         data class PostProcess(val status: String, val name: String) : Event
+
+        /** Posição já processada pelo FFmpeg (linhas "time=00:00:04.10" do corte). */
+        data class FfmpegTime(val seconds: Double) : Event
         data class File(val path: String) : Event
         data class Error(val message: String) : Event
     }
@@ -67,10 +70,20 @@ internal object OutputParser {
             FILE in line -> JSONArray("[" + line.substringAfter(FILE).trim() + "]")
                 .optString(0).takeIf { it.isNotBlank() && it != "null" }?.let { Event.File(it) }
             line.startsWith("ERROR:") -> Event.Error(line.removePrefix("ERROR:").trim())
+            "time=" in line -> ffmpegTime(line)?.let { Event.FfmpegTime(it) }
             else -> null
         }
     } catch (_: JSONException) {
         null
+    }
+
+    private val timeRegex = Regex("""(?:^|\s)time=\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)""")
+
+    /** Segundos da linha de estatística do FFmpeg; null em "time=N/A" ou em outro texto. */
+    fun ffmpegTime(line: String): Double? {
+        val m = timeRegex.find(line) ?: return null
+        val (h, min, s) = m.destructured
+        return h.toDouble() * 3600 + min.toDouble() * 60 + s.toDouble()
     }
 
     private fun parseMeta(json: String): Event.Meta {

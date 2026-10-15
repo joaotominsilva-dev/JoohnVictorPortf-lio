@@ -2,6 +2,7 @@ package com.joohn.baixavideos.engine
 
 import android.content.Context
 import android.util.Log
+import com.joohn.baixavideos.BuildConfig
 import com.joohn.baixavideos.data.History
 import com.joohn.baixavideos.service.DownloadService
 import com.joohn.baixavideos.service.Notifications
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +38,13 @@ object Downloads {
     private const val TAG = "Downloads"
     private const val MAX_PARALLEL = 2
     private const val PROGRESS_INTERVAL_MS = 250L
+    private const val OUTPUT_TAG = "YtDlpOut"
+
+    /** Sem nenhuma linha de saída por este tempo, o corte direto é dado como travado. */
+    private const val STALL_MS = 60_000L
+
+    /** No download completo seguido de corte, a barra vai até 85% baixando e o resto cortando. */
+    private const val DOWNLOAD_SHARE = 0.85f
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
@@ -74,6 +83,7 @@ object Downloads {
             mode = mode,
             quality = quality,
             trim = trim,
+            durationSec = info?.durationSec,
             title = info?.title,
             uploader = info?.uploader,
             thumbnail = info?.thumbnail,
@@ -90,7 +100,7 @@ object Downloads {
     fun retry(context: Context, id: String) {
         val old = find(id) ?: return
         remove(id)
-        val info = VideoInfo(old.url, old.title, old.uploader, old.thumbnail, durationSec = null)
+        val info = VideoInfo(old.url, old.title, old.uploader, old.thumbnail, durationSec = old.durationSec)
         enqueue(context, old.url, old.mode, old.quality, old.trim, info)
     }
 
@@ -98,6 +108,7 @@ object Downloads {
         cancelled += id
         jobs[id]?.cancel()
         mutate(id) { if (it.status.isActive) it.canceled() else it }
+        cutProcesses.remove(id)?.destroy()
         scope.launch { YoutubeDL.destroyProcessById(id) }
     }
 
@@ -148,43 +159,188 @@ object Downloads {
         }
     }
 
+    /** Como baixar um corte. Só o teste instrumentado muda isto, para exercitar cada caminho. */
+    enum class TrimPlan { SECTIONS, FULL_THEN_CUT }
+
+    /** Usado pelos testes para forçar um caminho de corte; null deixa o app escolher. */
+    @Volatile
+    var forcedTrimPlan: TrimPlan? = null
+
+    private val cutProcesses = ConcurrentHashMap<String, Process>()
+
+    private sealed interface RunResult {
+        data class Done(val files: List<File>) : RunResult
+        data object Canceled : RunResult
+        data class Failed(val raw: String, val details: String, val reachedDownload: Boolean, val stalled: Boolean) :
+            RunResult
+    }
+
     private suspend fun download(task: DownloadTask, workDir: File) {
         val id = task.id
-        val platform = Links.platformOf(task.url)
-        val cookies = if (platform == Platform.INSTAGRAM) InstagramSession.copyFor(app, workDir) else null
-        val request = buildRequest(task, workDir, cookies)
-        val run = RunState(task.mode, trimmed = task.trim != null)
-
-        val failure = Engine.withProcess {
-            if (id in cancelled) return@withProcess null
-            try {
-                YoutubeDL.execute(request, id, true) { _, _, line -> onLine(id, line, run) }
-                null
-            } catch (e: Exception) {
-                e
+        val trim = task.trim
+        if (trim == null) {
+            when (val result = runYtDlp(task, workDir, sections = false)) {
+                is RunResult.Done -> save(task, result.files)
+                RunResult.Canceled -> mutate(id) { it.canceled() }
+                is RunResult.Failed -> fail(id, task, result.raw, result.details)
             }
-        }
-
-        if (id in cancelled || failure is YoutubeDL.CanceledException) {
-            mutate(id) { it.canceled() }
             return
         }
+        when (forcedTrimPlan ?: planFor(task)) {
+            TrimPlan.FULL_THEN_CUT -> downloadThenCut(task, trim, File(workDir, "inteiro"))
+            TrimPlan.SECTIONS -> when (val result = runYtDlp(task, workDir, sections = true)) {
+                is RunResult.Done -> save(task, result.files)
+                RunResult.Canceled -> mutate(id) { it.canceled() }
+                is RunResult.Failed -> if (result.stalled || result.reachedDownload) {
+                    // O site respondeu, mas baixar só o trecho travou ou falhou: baixa inteiro e corta aqui.
+                    Log.w(TAG, "Corte direto falhou para $id (travou=${result.stalled}); usando download completo + corte local")
+                    mutate(id) {
+                        it.copy(status = TaskStatus.DOWNLOADING, stage = "Baixando o vídeo inteiro para cortar",
+                            progress = null, speedBps = null, etaSeconds = null)
+                    }
+                    downloadThenCut(task, trim, File(workDir, "inteiro"))
+                } else {
+                    fail(id, task, result.raw, result.details)
+                }
+            }
+        }
+    }
+
+    /**
+     * Vídeos curtos (e áudio de até 3 h) são baixados inteiros e cortados no aparelho: é o caminho
+     * mais confiável. Nos longos, baixar só o trecho economiza dados; se travar, cai no outro caminho.
+     */
+    private fun planFor(task: DownloadTask): TrimPlan {
+        val duration = task.durationSec ?: return TrimPlan.SECTIONS
+        val limit = if (task.mode == DownloadMode.AUDIO) 3 * 3600 else 15 * 60
+        return if (duration <= limit) TrimPlan.FULL_THEN_CUT else TrimPlan.SECTIONS
+    }
+
+    private suspend fun downloadThenCut(task: DownloadTask, trim: Trim, dir: File) {
+        val id = task.id
+        dir.deleteRecursively()
+        dir.mkdirs()
+        val downloaded = when (val result = runYtDlp(task, dir, sections = false, progressShare = DOWNLOAD_SHARE)) {
+            is RunResult.Done -> result.files
+            RunResult.Canceled -> {
+                mutate(id) { it.canceled() }
+                return
+            }
+            is RunResult.Failed -> {
+                fail(id, task, result.raw, result.details)
+                return
+            }
+        }
+        val section = " trecho ${fileTime(trim.startSec)}-${fileTime(trim.endSec)}"
+        val cuts = mutableListOf<File>()
+        for (input in downloaded) {
+            if (id in cancelled) {
+                mutate(id) { it.canceled() }
+                return
+            }
+            val ext = if (task.mode == DownloadMode.AUDIO) "mp3" else "mp4"
+            val output = File(File(dir, "corte").apply { mkdirs() }, input.nameWithoutExtension.take(120) + section + "." + ext)
+            mutate(id) {
+                it.copy(status = TaskStatus.PROCESSING, stage = "Cortando o trecho", progress = DOWNLOAD_SHARE,
+                    speedBps = null, etaSeconds = null)
+            }
+            var lastEmit = 0L
+            try {
+                LocalCutter.cut(
+                    app, input, output, trim,
+                    register = { cutProcesses[id] = it },
+                    onProgress = { fraction ->
+                        val now = System.currentTimeMillis()
+                        if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+                            lastEmit = now
+                            mutate(id) { it.copy(progress = DOWNLOAD_SHARE + (1 - DOWNLOAD_SHARE) * fraction) }
+                        }
+                    },
+                )
+            } catch (e: Exception) {
+                if (id in cancelled) {
+                    mutate(id) { it.canceled() }
+                    return
+                }
+                val details = (e as? CutException)?.details ?: e.message.orEmpty()
+                fail(id, task, e.message ?: "Falha ao cortar", details, friendly = e.message ?: "Não consegui cortar o trecho.")
+                return
+            } finally {
+                cutProcesses.remove(id)
+            }
+            input.delete()
+            cuts += output
+        }
+        save(task, cuts)
+    }
+
+    /** Roda um processo do yt-dlp e devolve os arquivos gerados em [dir]. */
+    private suspend fun runYtDlp(
+        task: DownloadTask,
+        dir: File,
+        sections: Boolean,
+        progressShare: Float = 1f,
+    ): RunResult {
+        val id = task.id
+        val platform = Links.platformOf(task.url)
+        val cookies = if (platform == Platform.INSTAGRAM) InstagramSession.copyFor(app, dir) else null
+        val request = buildRequest(task, dir, cookies, sections)
+        val run = RunState(task.mode, trimLengthSec = task.trim?.lengthSec?.takeIf { sections }, share = progressShare)
+
+        // Ao baixar só o trecho, quem baixa é o FFmpeg; se ele ficar mudo por muito tempo, travou.
+        val watchdog = if (sections) {
+            scope.launch {
+                while (true) {
+                    delay(5_000)
+                    if (System.currentTimeMillis() - run.lastLineAt > STALL_MS) {
+                        Log.w(TAG, "Download $id sem resposta há ${STALL_MS / 1000}s; interrompendo")
+                        run.stalled = true
+                        YoutubeDL.destroyProcessById(id)
+                        break
+                    }
+                }
+            }
+        } else {
+            null
+        }
+        val failure = try {
+            Engine.withProcess {
+                if (id in cancelled) return@withProcess null
+                try {
+                    YoutubeDL.execute(request, id, true) { _, _, line -> onLine(id, line, run) }
+                    null
+                } catch (e: Exception) {
+                    e
+                }
+            }
+        } finally {
+            watchdog?.cancel()
+        }
+
+        if (id in cancelled) return RunResult.Canceled
+        if (run.stalled) {
+            return RunResult.Failed("O download do trecho parou de responder.", run.errors.joinToString("\n"),
+                reachedDownload = true, stalled = true)
+        }
+        if (failure is YoutubeDL.CanceledException) return RunResult.Canceled
         if (failure != null) {
             val raw = run.errors.lastOrNull() ?: failure.message?.trim().orEmpty().ifEmpty { failure.javaClass.simpleName }
             val details = (run.errors + listOfNotNull(failure.message?.trim())).distinct().joinToString("\n")
-            fail(id, task, raw, details)
-            return
+            return RunResult.Failed(raw, details, reachedDownload = run.reachedDownload, stalled = false)
         }
-
         val produced = run.files.map(::File).filter { it.isFile }.ifEmpty {
-            workDir.listFiles()?.filter { it.isFile && !it.name.startsWith('.') && it.extension !in TEMP_EXTENSIONS }
+            dir.listFiles()?.filter { it.isFile && !it.name.startsWith('.') && it.extension !in TEMP_EXTENSIONS }
                 .orEmpty()
         }
         if (produced.isEmpty()) {
-            fail(id, task, "O download terminou, mas nenhum arquivo foi gerado.")
-            return
+            return RunResult.Failed("O download terminou, mas nenhum arquivo foi gerado.", run.errors.joinToString("\n"),
+                reachedDownload = true, stalled = false)
         }
+        return RunResult.Done(produced)
+    }
 
+    private fun save(task: DownloadTask, produced: List<File>) {
+        val id = task.id
         mutate(id) {
             it.copy(status = TaskStatus.SAVING, stage = "Salvando em ${MediaSaver.publicPath}", progress = null,
                 speedBps = null, etaSeconds = null)
@@ -206,14 +362,21 @@ object Downloads {
     }
 
     private fun onLine(id: String, line: String, run: RunState) {
+        run.lastLineAt = System.currentTimeMillis()
         if (id in cancelled) {
             YoutubeDL.destroyProcessById(id)
             return
         }
-        when (val event = OutputParser.parse(line) ?: return) {
+        val event = OutputParser.parse(line)
+        if (event == null) {
+            if (BuildConfig.DEBUG && line.isNotBlank()) Log.d(OUTPUT_TAG, line.take(400))
+            return
+        }
+        when (event) {
             is OutputParser.Event.Meta -> {
                 run.itemIndex = event.index
                 run.itemCount = event.count
+                run.reachedDownload = true
                 mutate(id) {
                     it.copy(
                         status = TaskStatus.DOWNLOADING,
@@ -222,29 +385,38 @@ object Downloads {
                         thumbnail = event.thumbnail ?: it.thumbnail,
                         itemIndex = event.index,
                         itemCount = event.count,
-                        stage = run.label(if (run.trimmed) "Baixando o trecho" else "Baixando"),
-                        progress = null,
+                        stage = run.label(if (run.trimLengthSec != null) "Baixando o trecho" else "Baixando"),
+                        progress = if (run.share < 1f) 0f else null,
                     )
                 }
             }
             is OutputParser.Event.Progress -> {
+                if (run.trimLengthSec != null) return // no corte direto, quem informa o avanço é o FFmpeg
                 val overall = run.overall(event)
                 if (!run.shouldEmit()) return
                 mutate(id) {
                     it.copy(
                         status = TaskStatus.DOWNLOADING,
                         stage = run.label(
-                            when {
-                                run.trimmed -> "Baixando o trecho"
-                                event.stream == OutputParser.Stream.VIDEO_ONLY -> "Baixando vídeo"
-                                event.stream == OutputParser.Stream.AUDIO_ONLY -> "Baixando áudio"
-                                else -> "Baixando"
+                            when (event.stream) {
+                                OutputParser.Stream.VIDEO_ONLY -> "Baixando vídeo"
+                                OutputParser.Stream.AUDIO_ONLY -> "Baixando áudio"
+                                OutputParser.Stream.MUXED -> "Baixando"
                             },
                         ),
-                        progress = overall,
+                        progress = overall?.let { f -> f * run.share },
                         speedBps = event.speed,
                         etaSeconds = event.eta,
                     )
+                }
+            }
+            is OutputParser.Event.FfmpegTime -> {
+                val length = run.trimLengthSec ?: return
+                if (!run.shouldEmit()) return
+                val fraction = (event.seconds / length).toFloat().coerceIn(0f, 0.99f)
+                mutate(id) {
+                    it.copy(status = TaskStatus.DOWNLOADING, stage = run.label("Baixando o trecho"),
+                        progress = fraction, speedBps = null, etaSeconds = null)
                 }
             }
             is OutputParser.Event.PostProcess -> if (event.status == "started") {
@@ -252,7 +424,7 @@ object Downloads {
                     it.copy(
                         status = TaskStatus.PROCESSING,
                         stage = run.label(OutputParser.postProcessLabel(event.name, run.mode)),
-                        progress = null,
+                        progress = if (run.share < 1f) run.share else null,
                         speedBps = null,
                         etaSeconds = null,
                     )
@@ -263,7 +435,7 @@ object Downloads {
         }
     }
 
-    private fun buildRequest(task: DownloadTask, workDir: File, cookies: File?): YoutubeDLRequest =
+    private fun buildRequest(task: DownloadTask, workDir: File, cookies: File?, sections: Boolean): YoutubeDLRequest =
         YoutubeDLRequest(task.url).apply {
             addOption("--ignore-config")
             addOption("--no-update")
@@ -282,10 +454,11 @@ object Downloads {
             addOption("--print", OutputParser.fileTemplate)
             addOption("--progress-template", OutputParser.progressTemplate)
             addOption("--progress-template", OutputParser.postprocessTemplate)
-            val section = task.trim?.let { " trecho ${fileTime(it.startSec)}-${fileTime(it.endSec)}" }.orEmpty()
+            val trim = task.trim?.takeIf { sections }
+            val section = trim?.let { " trecho ${fileTime(it.startSec)}-${fileTime(it.endSec)}" }.orEmpty()
             addOption("-o", File(workDir, "%(title).70B [%(id)s]$section.%(ext)s").absolutePath)
             if (cookies != null) addOption("--cookies", cookies.absolutePath)
-            task.trim?.let { trim ->
+            if (trim != null) {
                 // Baixa só o trecho; o FFmpeg recorta e recodifica as pontas para o corte cair no
                 // segundo exato (sem isso ele volta até o quadro-chave anterior).
                 addOption("--download-sections", "*${trim.startSec}-${trim.endSec}")
@@ -359,12 +532,25 @@ object Downloads {
 
     private val TEMP_EXTENSIONS = setOf("part", "ytdl", "temp", "tmp", "json")
 
-    /** Estado de um processo em andamento; só é tocado pela thread que lê a saída do yt-dlp. */
-    private class RunState(val mode: DownloadMode, val trimmed: Boolean) {
+    /**
+     * Estado de um processo em andamento; tocado pela thread que lê a saída do yt-dlp (e só
+     * lido pelo vigia de travamento). [trimLengthSec] existe quando o yt-dlp baixa só o trecho;
+     * [share] é a fração da barra que este processo ocupa.
+     */
+    private class RunState(val mode: DownloadMode, val trimLengthSec: Long?, val share: Float) {
         val files = mutableListOf<String>()
         val errors = mutableListOf<String>()
         var itemIndex: Int? = null
         var itemCount: Int? = null
+
+        @Volatile
+        var lastLineAt = System.currentTimeMillis()
+
+        @Volatile
+        var stalled = false
+
+        /** O yt-dlp já leu os dados do vídeo e começou a baixar. */
+        var reachedDownload = false
         private var sawVideoOnly = false
         private var lastEmit = 0L
 

@@ -9,24 +9,43 @@ import androidx.compose.runtime.setValue
 import com.joohn.baixavideos.data.Prefs
 import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.EngineUnavailableException
+import com.joohn.baixavideos.engine.SearchException
+import com.joohn.baixavideos.engine.SearchResult
 import com.joohn.baixavideos.engine.Trim
 import com.joohn.baixavideos.engine.VideoInfo
 import com.joohn.baixavideos.engine.VideoInfoException
 import com.joohn.baixavideos.engine.VideoInfoFetcher
 import com.joohn.baixavideos.engine.VideoQuality
+import com.joohn.baixavideos.engine.YouTubeSearch
 import com.joohn.baixavideos.util.Links
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.ceil
 
 sealed interface InfoState {
     data object Empty : InfoState
-    data object Loading : InfoState
+
+    /** Lendo o link; quando ele veio da busca, já mostra título e miniatura do resultado. */
+    data class Loading(val hint: SearchResult? = null) : InfoState
     data class Loaded(val info: VideoInfo) : InfoState
     data class Failed(val message: String) : InfoState
+}
+
+sealed interface SearchState {
+    data object Idle : SearchState
+    data class Loading(val query: String) : SearchState
+    data class Results(
+        val query: String,
+        val items: List<SearchResult>,
+        val canLoadMore: Boolean,
+        val loadingMore: Boolean = false,
+    ) : SearchState
+
+    data class Failed(val query: String, val message: String) : SearchState
 }
 
 /**
@@ -37,6 +56,8 @@ sealed interface InfoState {
 class DownloadDraft(context: Context, private val scope: CoroutineScope) {
     private val app = context.applicationContext
     private var fetchJob: Job? = null
+    private var searchJob: Job? = null
+    private var pendingHint: SearchResult? = null
 
     var text by mutableStateOf("")
         private set
@@ -55,6 +76,12 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
     var trimEnd by mutableLongStateOf(0L)
         private set
 
+    var search by mutableStateOf<SearchState>(SearchState.Idle)
+        private set
+
+    /** Texto digitado que não é link: vira busca no YouTube. */
+    val searchQuery: String? get() = text.trim().takeIf { link == null && it.length >= 2 }
+
     /** Duração descoberta pelo player da prévia, para sites que não informam a duração. */
     private var playerDurationSec by mutableStateOf<Double?>(null)
 
@@ -66,6 +93,10 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
 
     fun updateText(value: String) {
         text = value
+        if (value.isBlank()) {
+            searchJob?.cancel()
+            search = SearchState.Idle
+        }
         val next = Links.extractUrl(value)
         if (next == link) return
         link = next
@@ -86,11 +117,17 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
             info = InfoState.Loaded(it)
             return
         }
-        info = InfoState.Loading
+        info = InfoState.Loading(pendingHint?.takeIf { it.url == next })
+        pendingHint = null
         fetchJob = scope.launch {
             delay(350) // deixa a colagem ou a digitação terminar antes de abrir o motor
             info = try {
-                InfoState.Loaded(VideoInfoFetcher.fetch(app, next))
+                val loaded = withTimeoutOrNull(INFO_TIMEOUT_MS) { VideoInfoFetcher.fetch(app, next) }
+                if (loaded != null) {
+                    InfoState.Loaded(loaded)
+                } else {
+                    InfoState.Failed("O site demorou demais para responder.")
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: VideoInfoException) {
@@ -101,6 +138,56 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
                 InfoState.Failed("Não consegui ler esse link agora.")
             }
         }
+    }
+
+    /** Busca no YouTube o texto digitado (primeira página). */
+    fun runSearch() {
+        val query = searchQuery ?: return
+        searchJob?.cancel()
+        search = SearchState.Loading(query)
+        searchJob = scope.launch {
+            search = fetchPage(query, emptyList())
+        }
+    }
+
+    fun loadMoreResults() {
+        val current = search as? SearchState.Results ?: return
+        if (current.loadingMore || !current.canLoadMore) return
+        search = current.copy(loadingMore = true)
+        searchJob = scope.launch {
+            search = fetchPage(current.query, current.items)
+        }
+    }
+
+    private suspend fun fetchPage(query: String, previous: List<SearchResult>): SearchState = try {
+        val from = previous.size + 1
+        val to = previous.size + SEARCH_PAGE
+        val page = withTimeoutOrNull(INFO_TIMEOUT_MS) { YouTubeSearch.search(app, query, from, to) }
+            ?: throw SearchException("A busca demorou demais para responder.")
+        val items = (previous + page).distinctBy { it.id }
+        SearchState.Results(query, items, canLoadMore = page.size >= SEARCH_PAGE)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: SearchException) {
+        if (previous.isEmpty()) SearchState.Failed(query, e.message ?: "A busca falhou.")
+        else SearchState.Results(query, previous, canLoadMore = false)
+    } catch (_: EngineUnavailableException) {
+        SearchState.Failed(query, "O motor de download não iniciou. Abra os Ajustes para tentar de novo.")
+    } catch (_: Exception) {
+        if (previous.isEmpty()) SearchState.Failed(query, "Não consegui buscar agora.")
+        else SearchState.Results(query, previous, canLoadMore = false)
+    }
+
+    /** Escolhe um resultado da busca: ele vira o link do download. */
+    fun pick(result: SearchResult) {
+        pendingHint = result
+        updateText(result.url)
+    }
+
+    /** Volta para a lista da última busca. */
+    fun backToResults() {
+        val query = (search as? SearchState.Results)?.query ?: return
+        updateText(query)
     }
 
     fun selectMode(value: DownloadMode) {
@@ -155,4 +242,9 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
     fun toStart(): PendingStart? = link?.let { PendingStart(it, mode, quality, trim, loadedInfo) }
 
     fun reset() = updateText("")
+
+    private companion object {
+        const val INFO_TIMEOUT_MS = 120_000L
+        const val SEARCH_PAGE = 10
+    }
 }

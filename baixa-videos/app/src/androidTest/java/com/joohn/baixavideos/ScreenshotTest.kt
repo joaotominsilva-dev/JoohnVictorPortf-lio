@@ -85,6 +85,14 @@ class ScreenshotTest {
                 delay(1_000)
                 TestSupport.screenshot(device, context, "05_concluido")
 
+                // Texto que não é link vira busca no YouTube (o CI não alcança o YouTube; fica só o campo).
+                device.findObject(By.text("Início"))?.click()
+                delay(600)
+                scenario.onActivity { home.updateText("receita de bolo de cenoura") }
+                settle()
+                TestSupport.screenshot(device, context, "09_busca")
+                scenario.onActivity { home.updateText("") }
+
                 device.findObject(By.text("Ajustes"))?.click()
                 device.wait(Until.hasObject(By.text("Seus ajustes")), 5_000)
                 delay(800)

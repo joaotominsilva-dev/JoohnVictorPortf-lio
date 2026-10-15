@@ -9,6 +9,8 @@ import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.joohn.baixavideos.engine.DownloadMode
+import com.joohn.baixavideos.engine.Downloads
+import com.joohn.baixavideos.engine.YouTubeSearch
 import com.joohn.baixavideos.engine.SavedFile
 import com.joohn.baixavideos.engine.TaskStatus
 import com.joohn.baixavideos.engine.Trim
@@ -80,6 +82,87 @@ class EngineSmokeTest {
             val audioMs = durationMs(mp3)
             Log.i(TAG, "Trecho de áudio: ${mp3.name} | $audioMs ms")
             assertTrue("duração do trecho de áudio: $audioMs ms", audioMs in 700L..1500L)
+        }
+    }
+
+    /** Caminho principal do corte: baixa o arquivo inteiro e corta no aparelho com o FFmpeg. */
+    @Test
+    fun trimsByDownloadingThenCuttingOnDevice(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        Downloads.forcedTrimPlan = Downloads.TrimPlan.FULL_THEN_CUT
+        try {
+            TestHttpServer(TestSupport.testAssets, "dash").use { server ->
+                val video = TestSupport.download(context, server.url("Corte.mpd"), DownloadMode.VIDEO, trim = Trim(1, 2))
+                assertEquals(video.errorDetails, TaskStatus.DONE, video.status)
+                val mp4 = video.files.single()
+                val videoMs = durationMs(mp4)
+                Log.i(TAG, "Corte local (vídeo): ${mp4.name} | $videoMs ms | ${videoMime(mp4)}")
+                assertTrue("duração do corte local: $videoMs ms", videoMs in 700L..1400L)
+                assertEquals("video/avc", videoMime(mp4))
+                assertTrue("nome sem o trecho: ${mp4.name}", "trecho 00m01s-00m02s" in mp4.name)
+
+                val audio = TestSupport.download(context, server.url("Corte.mpd"), DownloadMode.AUDIO, trim = Trim(1, 2))
+                assertEquals(audio.errorDetails, TaskStatus.DONE, audio.status)
+                val mp3 = audio.files.single()
+                val audioMs = durationMs(mp3)
+                Log.i(TAG, "Corte local (áudio): ${mp3.name} | $audioMs ms")
+                assertTrue("duração do corte local de áudio: $audioMs ms", audioMs in 700L..1500L)
+                assertEquals("audio/mpeg", mp3.mime)
+            }
+        } finally {
+            Downloads.forcedTrimPlan = null
+        }
+    }
+
+    /** Corte em sites reais pelos dois caminhos; só registra no log (o CI pode ser bloqueado). */
+    @Test
+    fun realTrimsBestEffort(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        val sites = listOf(
+            "TikTok" to "https://www.tiktok.com/@scout2015/video/6718335390845095173",
+            "Instagram" to "https://www.instagram.com/p/aye83DjauH/",
+        )
+        try {
+            for ((name, url) in sites) {
+                val info = runCatching { VideoInfoFetcher.fetch(context, url) }
+                Log.i(TAG, "REAL INFO $name: ${info.getOrNull()?.let { "${it.title} | ${it.durationSec}s | ${it.preview.map { p -> p.protocol }}" } ?: info.exceptionOrNull()?.message}")
+                info.getOrNull()?.let { realPreview(name, it) }
+                for (plan in Downloads.TrimPlan.entries) {
+                    Downloads.forcedTrimPlan = plan
+                    val started = System.currentTimeMillis()
+                    val outcome = runCatching {
+                        TestSupport.download(context, url, DownloadMode.VIDEO, VideoQuality.P480, timeout = 4.minutes, trim = Trim(2, 6))
+                    }
+                    val seconds = (System.currentTimeMillis() - started) / 1000
+                    outcome.onSuccess { task ->
+                        val file = task.files.singleOrNull()
+                        Log.i(
+                            TAG,
+                            "REAL TRIM $name $plan: ${task.status} em ${seconds}s | " +
+                                "${file?.let { "${it.name} ${it.size} B ${durationMs(it)} ms ${videoMime(it)}" }} | " +
+                                "${task.error} | ${task.errorDetails?.take(600)}",
+                        )
+                    }.onFailure { Log.w(TAG, "REAL TRIM $name $plan: ${it.message} (${seconds}s)") }
+                }
+            }
+        } finally {
+            Downloads.forcedTrimPlan = null
+        }
+        val search = runCatching { YouTubeSearch.search(context, "receita de bolo de cenoura", 1, 5) }
+        Log.i(TAG, "REAL SEARCH: ${search.getOrNull()?.map { "${it.title} (${it.durationSec}s, ${it.channel})" } ?: search.exceptionOrNull()?.message}")
+    }
+
+    private suspend fun realPreview(name: String, info: com.joohn.baixavideos.engine.VideoInfo) {
+        var reported: Double? = null
+        val controller = withContext(Dispatchers.Main) { PreviewController(context, info) { reported = it } }
+        try {
+            withTimeoutOrNull(30.seconds) {
+                while (withContext(Dispatchers.Main) { !controller.failed && reported == null }) delay(250)
+            }
+            val failed = withContext(Dispatchers.Main) { controller.failed }
+            Log.i(TAG, "REAL PREVIEW $name: falhou=$failed duração=$reported")
+        } finally {
+            withContext(Dispatchers.Main) { controller.release() }
         }
     }
 

@@ -36,5 +36,14 @@ object Formats {
     /** Sempre devolve um tempo: 00:00 para valores ausentes ou negativos. */
     fun clock(seconds: Long): String = timecode(seconds.coerceAtLeast(0L)) ?: "00:00"
 
+    /** 532 visualizações · 12 mil visualizações · 1,2 mi de visualizações. */
+    fun views(count: Long): String = when {
+        count >= 1_000_000_000 -> "${oneDecimal.format(count / 1e9).removeSuffix(",0")} bi de visualizações"
+        count >= 1_000_000 -> "${oneDecimal.format(count / 1e6).removeSuffix(",0")} mi de visualizações"
+        count >= 1_000 -> "${count / 1_000} mil visualizações"
+        count == 1L -> "1 visualização"
+        else -> "$count visualizações"
+    }
+
     fun percent(fraction: Float?): String? = fraction?.let { "${(it * 100).toInt().coerceIn(0, 100)}%" }
 }

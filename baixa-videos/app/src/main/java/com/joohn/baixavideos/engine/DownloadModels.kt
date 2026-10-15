@@ -65,6 +65,8 @@ data class DownloadTask(
     val mode: DownloadMode,
     val quality: VideoQuality,
     val trim: Trim? = null,
+    /** Duração do vídeo inteiro, quando a prévia informou; decide como o corte é baixado. */
+    val durationSec: Double? = null,
     val status: TaskStatus = TaskStatus.QUEUED,
     val title: String? = null,
     val uploader: String? = null,

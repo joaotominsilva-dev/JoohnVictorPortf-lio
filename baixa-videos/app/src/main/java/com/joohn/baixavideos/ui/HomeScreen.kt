@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import com.joohn.baixavideos.engine.DownloadTask
 import com.joohn.baixavideos.engine.Engine
 import com.joohn.baixavideos.ui.components.Headline
 import com.joohn.baixavideos.ui.components.RoundIconButton
+import com.joohn.baixavideos.ui.components.SmallPill
 import com.joohn.baixavideos.ui.components.TopBar
 import com.joohn.baixavideos.ui.components.well
 import com.joohn.baixavideos.ui.theme.Charis
@@ -64,7 +66,7 @@ fun HomeScreen(vm: MainViewModel, onStarted: (DownloadTask) -> Unit) {
             TopBar(today())
             Headline(
                 "Olá! O que vamos baixar?",
-                "Cole um link ou compartilhe direto do Instagram, YouTube ou TikTok.",
+                "Cole um link, pesquise no YouTube ou compartilhe de outro app.",
                 Modifier.padding(top = 6.dp),
             )
             Row(
@@ -86,10 +88,23 @@ fun HomeScreen(vm: MainViewModel, onStarted: (DownloadTask) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             LinkCard(draft)
-            InfoCard(draft)
-            if (draft.mode == DownloadMode.VIDEO) QualityCard(draft)
-            TrimCard(draft)
-            DownloadButton(draft, onClick = { draft.toStart()?.let(start) })
+            if (draft.link == null && draft.text.isNotBlank()) {
+                // Texto que não é link: a área de baixo vira a lista da busca no YouTube.
+                SearchResultsCard(draft)
+            } else {
+                if (draft.link != null && draft.search is SearchState.Results) {
+                    SmallPill(
+                        "Voltar aos resultados",
+                        onClick = draft::backToResults,
+                        filled = false,
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    )
+                }
+                InfoCard(draft)
+                if (draft.mode == DownloadMode.VIDEO) QualityCard(draft)
+                TrimCard(draft)
+                DownloadButton(draft, onClick = { draft.toStart()?.let(start) })
+            }
             BottomSpace()
         }
     }
