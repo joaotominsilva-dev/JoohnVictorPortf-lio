@@ -7,6 +7,6 @@ adb logcat -c || true
 status=$?
 adb logcat -d -v time > build/ci/logcat.txt || true
 echo "===== Log dos testes ====="
-grep -E "CharisTest|Engine|Downloads|VideoInfo|PreviewController|LocalCutter|AndroidRuntime|FATAL" build/ci/logcat.txt | tail -n 300 || true
+grep -E "[VDIWEF]/(CharisTest|Engine|Downloads|VideoInfo|PreviewController|LocalCutter|AndroidRuntime) *\(|FATAL" build/ci/logcat.txt | tail -n 600 || true
 adb pull /sdcard/Download/CharisCI build/ci/screenshots || true
 exit $status
