@@ -19,8 +19,8 @@ android {
         applicationId = "com.joohn.baixavideos"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "2.3.0"
+        versionCode = 9
+        versionName = "2.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         if (targetAbi != null) {
             ndk { abiFilters += targetAbi }

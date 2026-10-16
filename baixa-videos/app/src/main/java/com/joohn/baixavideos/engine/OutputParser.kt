@@ -14,6 +14,7 @@ internal object OutputParser {
     const val PROGRESS = "__BV_PROG__"
     const val POSTPROCESS = "__BV_PP__"
     const val FILE = "__BV_FILE__"
+    const val MUSIC = "__BV_MUSIC__"
 
     val metaTemplate =
         "before_dl:$META{\"id\":%(id|null)j,\"title\":%(title|null)j,\"uploader\":%(uploader|null)j," +
@@ -27,6 +28,10 @@ internal object OutputParser {
     val postprocessTemplate = "postprocess:$POSTPROCESS[%(progress.status|null)j,%(progress.postprocessor|null)j]"
 
     val fileTemplate = "after_move:$FILE%(filepath|null)j"
+
+    /** Dados de música que o YouTube informa (faixa, artistas, álbum...), para as etiquetas do MP3. */
+    val musicTemplate = "before_dl:$MUSIC%(.{id,title,track,artist,artists,creator,album,release_year," +
+        "release_date,channel,uploader,duration,genre,genres,track_number,thumbnail,extractor_key})j"
 
     enum class Stream { VIDEO_ONLY, AUDIO_ONLY, MUXED }
 
@@ -59,6 +64,9 @@ internal object OutputParser {
         /** Posição já processada pelo FFmpeg (linhas "time=00:00:04.10" do corte). */
         data class FfmpegTime(val seconds: Double) : Event
         data class File(val path: String) : Event
+
+        /** JSON de [musicTemplate]; [id] liga o JSON ao arquivo ("... [id].mp3"). */
+        data class Music(val id: String, val json: String) : Event
         data class Error(val message: String) : Event
     }
 
@@ -67,6 +75,9 @@ internal object OutputParser {
             PROGRESS in line -> parseProgress(line.substringAfter(PROGRESS))
             META in line -> parseMeta(line.substringAfter(META))
             POSTPROCESS in line -> parsePostProcess(line.substringAfter(POSTPROCESS))
+            MUSIC in line -> line.substringAfter(MUSIC).trim().let { json ->
+                JSONObject(json).optString("id").takeIf { it.isNotBlank() }?.let { Event.Music(it, json) }
+            }
             FILE in line -> JSONArray("[" + line.substringAfter(FILE).trim() + "]")
                 .optString(0).takeIf { it.isNotBlank() && it != "null" }?.let { Event.File(it) }
             line.startsWith("ERROR:") -> Event.Error(line.removePrefix("ERROR:").trim())

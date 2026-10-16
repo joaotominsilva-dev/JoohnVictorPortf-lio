@@ -33,6 +33,10 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
 - **Cortar trecho:** ligue o corte, arraste as duas alças (ou toque em Início e Fim para digitar o
   tempo exato) e toque no play da prévia para assistir só a parte que vai ser baixada. O app baixa
   só o trecho e acerta o corte no próprio celular, com barra de progresso.
+- **Músicas em MP3:** o arquivo e o título ficam só com o nome da música ("Bohemian Rhapsody.mp3"),
+  e as etiquetas trazem artista, álbum, artista do álbum, ano, gênero, número da faixa, a capa do
+  álbum e a letra (sincronizada quando existe), que players como Samsung Music, Poweramp e o
+  Musicolet mostram. Num corte, a letra sincronizada acompanha o trecho.
 - No Instagram, YouTube ou TikTok, toque em **Compartilhar** e escolha **Charis**: abre uma janela por
   cima do app com as mesmas opções (formato, qualidade e corte). Nada começa sem você escolher.
 - Os arquivos ficam em `Download/Charis` e aparecem na galeria e no app de música.
@@ -58,6 +62,11 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
   escolhido. Se o Transformer não conseguir, o FFmpeg recodifica o trecho com o x264 no modo mais
   rápido. Se baixar só o trecho falhar ou ficar 60 segundos sem resposta, o app baixa o vídeo
   inteiro e corta no aparelho.
+- No MP3, o app junta o que o YouTube informa da música (faixa, artistas, álbum) com o título do
+  vídeo sem "(Official Video)", "[Clipe Oficial]" etc., e confere no catálogo público do iTunes
+  (nome oficial, álbum, ano, gênero, faixa e a capa em 1000x1000). A letra vem do
+  [LRCLIB](https://lrclib.net). Sem catálogo, a capa é a miniatura do vídeo recortada em quadrado.
+  As etiquetas são gravadas como ID3v2.3 (título, artista, álbum, capa e letra), lidas por qualquer player.
 - A busca usa `ytsearch` do yt-dlp com `--flat-playlist`, que traz só a lista de resultados.
 - Cada download roda numa pasta privada do app e o resultado é copiado para `Download/Charis`.
 - O progresso vem de linhas próprias pedidas ao yt-dlp (`--print` e `--progress-template` em JSON),
@@ -68,6 +77,7 @@ Código principal em `app/src/main/java/com/joohn/baixavideos`:
 | Pasta | O que tem |
 | --- | --- |
 | `engine/` | motor, fila de downloads, leitura de dados do link, saída do yt-dlp, atualizador, Instagram, salvamento |
+| `engine/music/` | etiquetas das músicas em MP3: palpite pelo título, catálogo do iTunes, letra do LRCLIB, gravação ID3 |
 | `service/` | serviço em primeiro plano e notificações |
 | `ui/` | telas em Jetpack Compose (boas-vindas, início, downloads, ajustes, janela de compartilhar) |
 | `ui/trim/` | cartão de corte: player da prévia, linha do tempo e tempos exatos |

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.joohn.baixavideos.BuildConfig
 import com.joohn.baixavideos.data.History
+import com.joohn.baixavideos.engine.music.MusicTagger
 import com.joohn.baixavideos.service.DownloadService
 import com.joohn.baixavideos.service.Notifications
 import com.joohn.baixavideos.util.Links
@@ -29,9 +30,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToLong
 
 /** Fila de downloads: cada item vira um processo do yt-dlp com saída monitorada linha a linha. */
 object Downloads {
@@ -178,7 +181,7 @@ object Downloads {
     private val cutProcesses = ConcurrentHashMap<String, Process>()
 
     private sealed interface RunResult {
-        data class Done(val files: List<File>) : RunResult
+        data class Done(val files: List<File>, val music: Map<String, String> = emptyMap()) : RunResult
         data object Canceled : RunResult
         data class Failed(val raw: String, val details: String, val reachedDownload: Boolean, val stalled: Boolean) :
             RunResult
@@ -189,7 +192,7 @@ object Downloads {
         val trim = task.trim
         if (trim == null) {
             when (val result = runYtDlp(task, workDir, sections = false)) {
-                is RunResult.Done -> save(task, result.files)
+                is RunResult.Done -> save(task, result.files, result.music)
                 RunResult.Canceled -> mutate(id) { it.canceled() }
                 is RunResult.Failed -> fail(id, task, result.raw, result.details)
             }
@@ -204,7 +207,8 @@ object Downloads {
                 )
             ) {
                 is RunResult.Done ->
-                    if (task.mode == DownloadMode.VIDEO) finishSections(task, trim, result.files, workDir) else save(task, result.files)
+                    if (task.mode == DownloadMode.VIDEO) finishSections(task, trim, result.files, workDir)
+                    else save(task, result.files, result.music)
                 RunResult.Canceled -> mutate(id) { it.canceled() }
                 is RunResult.Failed -> if (result.stalled || result.reachedDownload) {
                     // O site respondeu, mas baixar só o trecho travou ou falhou: baixa inteiro e corta aqui.
@@ -269,8 +273,26 @@ object Downloads {
         val video = !output.extension.equals("mp3", ignoreCase = true)
         if (video && forcedCutEngine != CutEngine.FFMPEG) {
             try {
-                val startMs = (startSec ?: 0L) * 1000
-                TransformerCutter.cut(app, input, output, startMs, startMs + lengthSec * 1000) { fraction ->
+                // O trecho copiado começa no quadro-chave anterior, com tempo negativo antes do ponto
+                // pedido; o Transformer precisa de um arquivo com tempos a partir de zero.
+                val source: File
+                val startMs: Long
+                if (startSec == null) {
+                    val preroll = withContext(Dispatchers.IO) { LocalCutter.prerollSeconds(app, input) }
+                        ?: throw IOException("não deu para medir o início do trecho")
+                    if (preroll > 0.01) {
+                        source = File(input.parentFile, "limpo-" + input.name)
+                        val ok = withContext(Dispatchers.IO) { LocalCutter.remuxClean(app, input, source) }
+                        if (!ok) throw IOException("não deu para preparar o trecho")
+                    } else {
+                        source = input
+                    }
+                    startMs = (preroll * 1000).roundToLong()
+                } else {
+                    source = input
+                    startMs = startSec * 1000
+                }
+                TransformerCutter.cut(app, source, output, startMs, startMs + lengthSec * 1000) { fraction ->
                     val now = System.currentTimeMillis()
                     if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
                         lastEmit = now
@@ -319,7 +341,8 @@ object Downloads {
         val id = task.id
         dir.deleteRecursively()
         dir.mkdirs()
-        val downloaded = when (val result = runYtDlp(task, dir, sections = false, progressShare = DOWNLOAD_SHARE)) {
+        val fullRun = runYtDlp(task, dir, sections = false, progressShare = DOWNLOAD_SHARE)
+        val downloaded = when (val result = fullRun) {
             is RunResult.Done -> result.files
             RunResult.Canceled -> {
                 mutate(id) { it.canceled() }
@@ -352,7 +375,7 @@ object Downloads {
             input.delete()
             cuts += output
         }
-        save(task, cuts)
+        save(task, cuts, (fullRun as? RunResult.Done)?.music.orEmpty())
     }
 
     /** Roda um processo do yt-dlp e devolve os arquivos gerados em [dir]. */
@@ -417,11 +440,12 @@ object Downloads {
             return RunResult.Failed("O download terminou, mas nenhum arquivo foi gerado.", run.errors.joinToString("\n"),
                 reachedDownload = true, stalled = false)
         }
-        return RunResult.Done(produced)
+        return RunResult.Done(produced, run.music.toMap())
     }
 
-    private suspend fun save(task: DownloadTask, produced: List<File>) {
+    private suspend fun save(task: DownloadTask, files: List<File>, music: Map<String, String> = emptyMap()) {
         val id = task.id
+        val produced = if (task.mode == DownloadMode.AUDIO) tagMusic(task, files, music) else files
         mutate(id) {
             it.copy(status = TaskStatus.SAVING, stage = "Salvando em ${MediaSaver.publicPath}", progress = null,
                 speedBps = null, etaSeconds = null)
@@ -440,6 +464,38 @@ object Downloads {
         }
         persistHistory()
         done?.let { Notifications.finished(app, it) }
+    }
+
+    /**
+     * MP3: nome e título só com o nome da música, artista, álbum, capa e letra (veja MusicTagger).
+     * Falhas aqui não derrubam o download; o arquivo sai como veio.
+     */
+    private suspend fun tagMusic(task: DownloadTask, files: List<File>, music: Map<String, String>): List<File> {
+        val id = task.id
+        mutate(id) {
+            it.copy(status = TaskStatus.PROCESSING, stage = "Buscando capa e letra", progress = null,
+                speedBps = null, etaSeconds = null)
+        }
+        return files.map { file ->
+            if (!file.extension.equals("mp3", ignoreCase = true)) return@map file
+            val json = music.entries.firstOrNull { (videoId, _) -> file.name.contains("[$videoId]") }?.value
+                ?: music.values.singleOrNull()
+            try {
+                val result = MusicTagger.tag(file, json, task.title, task.trim)
+                if (files.size == 1) {
+                    mutate(id) {
+                        it.copy(title = result.title, uploader = result.artist ?: it.uploader,
+                            thumbnail = result.coverUrl ?: it.thumbnail)
+                    }
+                }
+                result.file
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Etiquetas da música falharam para ${file.name}", e)
+                file
+            }
+        }
     }
 
     private fun onLine(id: String, line: String, run: RunState) {
@@ -512,6 +568,7 @@ object Downloads {
                 }
             }
             is OutputParser.Event.File -> run.files += event.path
+            is OutputParser.Event.Music -> run.music[event.id] = event.json
             is OutputParser.Event.Error -> run.errors += ErrorTranslator.clean(event.message)
         }
     }
@@ -552,6 +609,7 @@ object Downloads {
                     addOption("--merge-output-format", "mp4")
                 }
                 DownloadMode.AUDIO -> {
+                    addOption("--print", OutputParser.musicTemplate)
                     addOption("-f", "ba/b")
                     addOption("-x")
                     addOption("--audio-format", "mp3")
@@ -619,6 +677,7 @@ object Downloads {
     private class RunState(val mode: DownloadMode, val trimLengthSec: Long?, val share: Float) {
         val files = mutableListOf<String>()
         val errors = mutableListOf<String>()
+        val music = mutableMapOf<String, String>()
         var itemIndex: Int? = null
         var itemCount: Int? = null
 

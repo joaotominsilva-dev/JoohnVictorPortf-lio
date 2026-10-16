@@ -63,6 +63,41 @@ class EngineSmokeTest {
         }
     }
 
+    /**
+     * MP3 de música: arquivo e título só com o nome da música, artista nas etiquetas.
+     * Capa, álbum e letra dependem da rede (iTunes e LRCLIB), então só vão para o log.
+     */
+    @Test
+    fun tagsMusicDownloads(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        TestHttpServer(TestSupport.testAssets, "dash").use { server ->
+            val url = server.url("Queen%20-%20Bohemian%20Rhapsody%20(Official%20Video).mpd")
+            val task = TestSupport.download(context, url, DownloadMode.AUDIO, timeout = 3.minutes)
+            assertEquals(task.errorDetails, TaskStatus.DONE, task.status)
+            val mp3 = task.files.single()
+            assertTrue("nome: ${mp3.name}", mp3.name.startsWith("Bohemian Rhapsody") && mp3.name.endsWith(".mp3"))
+            assertFalse("nome com o id do vídeo: ${mp3.name}", mp3.name.contains("["))
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, Uri.parse(mp3.uri))
+                val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                val year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
+                val cover = retriever.embeddedPicture
+                Log.i(
+                    TAG,
+                    "MÚSICA: ${mp3.name} | título=$title | artista=$artist | álbum=$album | ano=$year | " +
+                        "capa=${cover?.size ?: 0} B | tarefa=${task.title} / ${task.uploader}",
+                )
+                assertTrue("título: $title", title.orEmpty().startsWith("Bohemian Rhapsody"))
+                assertTrue("artista: $artist", artist.orEmpty().contains("Queen"))
+            } finally {
+                retriever.release()
+            }
+        }
+    }
+
     /** O corte baixa só o trecho pedido, com o corte no segundo exato (recodificado em H.264). */
     @Test
     fun trimsVideoAndAudioToTheChosenSection(): Unit = runBlocking {

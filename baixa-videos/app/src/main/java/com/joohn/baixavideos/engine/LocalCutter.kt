@@ -21,6 +21,59 @@ internal object LocalCutter {
     /** O binário que o youtubedl-android extrai para a pasta de bibliotecas nativas. */
     fun binary(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libffmpeg.so")
 
+    private fun probeBinary(context: Context) = File(context.applicationInfo.nativeLibraryDir, "libffprobe.so")
+
+    /**
+     * Quanto o trecho baixado por cópia começa antes do ponto pedido (segundos). O FFmpeg copia a
+     * partir do quadro-chave anterior e marca esse pedaço com tempo negativo; null se não deu para ler.
+     */
+    fun prerollSeconds(context: Context, input: File): Double? {
+        val probe = probeBinary(context)
+        if (!probe.isFile) return null
+        val output = runQuiet(
+            context,
+            listOf(
+                probe.absolutePath, "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time",
+                "-read_intervals", "%+#12", "-of", "csv=p=0", input.absolutePath,
+            ),
+        ) ?: return null
+        val first = output.lines().mapNotNull { it.trim().trimEnd(',').toDoubleOrNull() }.minOrNull() ?: return null
+        return maxOf(0.0, -first)
+    }
+
+    /**
+     * Copia o trecho para um MP4 com os tempos começando em zero (sem a marcação negativa), que o
+     * Media3 Transformer consegue gravar. Não recodifica: leva frações de segundo.
+     */
+    fun remuxClean(context: Context, input: File, output: File): Boolean {
+        val code = runQuietCode(
+            context,
+            listOf(
+                binary(context).absolutePath, "-y", "-v", "error", "-nostdin", "-i", input.absolutePath,
+                "-map", "0", "-c", "copy", "-avoid_negative_ts", "make_zero", output.absolutePath,
+            ),
+        )
+        return code == 0 && output.isFile && output.length() > 0
+    }
+
+    private fun runQuiet(context: Context, args: List<String>): String? {
+        val builder = ProcessBuilder(args).redirectErrorStream(true)
+        builder.environment()["LD_LIBRARY_PATH"] = libraryPath(context)
+        val process = builder.start()
+        val text = process.inputStream.bufferedReader().use { it.readText() }
+        return if (process.waitFor() == 0) text else null.also { Log.w(TAG, "Falhou: ${args.first()} ${text.take(500)}") }
+    }
+
+    private fun runQuietCode(context: Context, args: List<String>): Int {
+        val builder = ProcessBuilder(args).redirectErrorStream(true)
+        builder.environment()["LD_LIBRARY_PATH"] = libraryPath(context)
+        val process = builder.start()
+        val text = process.inputStream.bufferedReader().use { it.readText() }
+        val code = process.waitFor()
+        if (code != 0) Log.w(TAG, "Falhou ($code): ${text.take(500)}")
+        return code
+    }
+
     /** As mesmas pastas de bibliotecas que o youtubedl-android usa ao chamar o FFmpeg. */
     fun libraryPath(context: Context): String =
         File(context.noBackupFilesDir, "youtubedl-android/packages").listFiles().orEmpty()
