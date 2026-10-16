@@ -34,6 +34,7 @@ import java.io.IOException
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 /** Fila de downloads: cada item vira um processo do yt-dlp com saída monitorada linha a linha. */
@@ -82,6 +83,7 @@ object Downloads {
         quality: VideoQuality,
         trim: Trim? = null,
         info: VideoInfo? = null,
+        reframe: Reframe? = null,
     ): DownloadTask {
         val task = DownloadTask(
             id = UUID.randomUUID().toString().replace("-", "").take(16),
@@ -89,6 +91,7 @@ object Downloads {
             mode = mode,
             quality = quality,
             trim = trim,
+            reframe = reframe.takeIf { mode == DownloadMode.VIDEO },
             durationSec = info?.durationSec,
             title = info?.title,
             uploader = info?.uploader,
@@ -107,7 +110,7 @@ object Downloads {
         val old = find(id) ?: return
         remove(id)
         val info = VideoInfo(old.url, old.title, old.uploader, old.thumbnail, durationSec = old.durationSec)
-        enqueue(context, old.url, old.mode, old.quality, old.trim, info)
+        enqueue(context, old.url, old.mode, old.quality, old.trim, info, old.reframe)
     }
 
     fun cancel(id: String) {
@@ -191,8 +194,9 @@ object Downloads {
         val id = task.id
         val trim = task.trim
         if (trim == null) {
-            when (val result = runYtDlp(task, workDir, sections = false)) {
-                is RunResult.Done -> save(task, result.files, result.music)
+            val reframing = task.mode == DownloadMode.VIDEO && task.reframe != null
+            when (val result = runYtDlp(task, workDir, sections = false, progressShare = if (reframing) DOWNLOAD_SHARE else 1f)) {
+                is RunResult.Done -> if (reframing) reframeAll(task, result.files, workDir) else save(task, result.files, result.music)
                 RunResult.Canceled -> mutate(id) { it.canceled() }
                 is RunResult.Failed -> fail(id, task, result.raw, result.details)
             }
@@ -237,12 +241,21 @@ object Downloads {
                 mutate(id) { it.canceled() }
                 return
             }
-            val output = File(File(workDir, "corte").apply { mkdirs() }, input.name)
-            if (cutLocally(task, input, output, startSec = null, trim.lengthSec, SECTION_SHARE)) {
-                output
-            } else {
-                lastCutError.remove(id)
-                input
+            val output = File(File(workDir, "corte").apply { mkdirs() }, outputName(task, input.nameWithoutExtension, "mp4"))
+            when {
+                cutLocally(task, input, output, Clip.Section(trim.lengthSec), SECTION_SHARE) -> output
+                // Sem recorte, o trecho copiado serve; com recorte, sairia no formato errado.
+                task.reframe == null || id in cancelled -> {
+                    lastCutError.remove(id)
+                    input
+                }
+                else -> {
+                    val error = lastCutError.remove(id)
+                    val details = (error as? CutException)?.details ?: error?.message.orEmpty()
+                    fail(id, task, error?.message ?: "Falha ao recortar", details,
+                        friendly = "Não consegui deixar o trecho na ${task.reframe?.framing?.word}.")
+                    return
+                }
             }
         }
         if (id in cancelled) {
@@ -252,58 +265,83 @@ object Downloads {
         save(task, finals)
     }
 
+    /** O que o acerto no aparelho faz com o tempo do arquivo. */
+    private sealed interface Clip {
+        /** Trecho baixado por cópia: começa no quadro-chave anterior, então mede e acerta o início. */
+        data class Section(val lengthSec: Long) : Clip
+
+        /** Arquivo inteiro: fica só de [startSec] até [startSec] + [lengthSec]. */
+        data class Range(val startSec: Long, val lengthSec: Long) : Clip
+
+        /** Sem mexer no tempo: só recorta o quadro (vertical ou horizontal). */
+        data object Whole : Clip
+    }
+
     /**
-     * Roda o corte local mostrando o avanço; devolve false se não conseguiu. Vídeo vai primeiro
-     * pelo Media3 Transformer (codificador de hardware, recodifica só o começo); o FFmpeg é a reserva.
+     * Roda o corte e o recorte no aparelho mostrando o avanço; devolve false se não conseguiu.
+     * Vídeo vai primeiro pelo Media3 Transformer (codificador de hardware; sem recorte, recodifica
+     * só o começo do trecho); o FFmpeg é a reserva.
      */
-    private suspend fun cutLocally(
-        task: DownloadTask,
-        input: File,
-        output: File,
-        startSec: Long?,
-        lengthSec: Long,
-        from: Float,
-    ): Boolean {
+    private suspend fun cutLocally(task: DownloadTask, input: File, output: File, clip: Clip, from: Float): Boolean {
         val id = task.id
+        val video = !output.extension.equals("mp3", ignoreCase = true)
+        val reframe = task.reframe.takeIf { video }
+        val stage = when {
+            reframe != null && clip == Clip.Whole -> "Deixando na ${reframe.framing.word}"
+            reframe != null -> "Cortando e deixando na ${reframe.framing.word}"
+            else -> "Ajustando o corte"
+        }
         mutate(id) {
-            it.copy(status = TaskStatus.PROCESSING, stage = "Ajustando o corte", progress = from,
-                speedBps = null, etaSeconds = null)
+            it.copy(status = TaskStatus.PROCESSING, stage = stage, progress = from, speedBps = null, etaSeconds = null)
         }
         var lastEmit = 0L
-        val video = !output.extension.equals("mp3", ignoreCase = true)
+        val report: (Float) -> Unit = { fraction ->
+            val now = System.currentTimeMillis()
+            if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+                lastEmit = now
+                mutate(id) { it.copy(progress = from + (1 - from) * fraction) }
+            }
+        }
         if (video && forcedCutEngine != CutEngine.FFMPEG) {
             try {
-                // O trecho copiado começa no quadro-chave anterior, com tempo negativo antes do ponto
-                // pedido; o Transformer precisa de um arquivo com tempos a partir de zero.
                 val source: File
-                val startMs: Long
-                if (startSec == null) {
-                    val preroll = withContext(Dispatchers.IO) { LocalCutter.prerollSeconds(app, input) }
-                        ?: throw IOException("não deu para medir o início do trecho")
-                    if (preroll > 0.01) {
-                        source = File(input.parentFile, "limpo-" + input.name)
-                        val ok = withContext(Dispatchers.IO) { LocalCutter.remuxClean(app, input, source) }
-                        if (!ok) throw IOException("não deu para preparar o trecho")
-                    } else {
+                val startMs: Long?
+                val endMs: Long?
+                when (clip) {
+                    is Clip.Section -> {
+                        // O trecho copiado começa no quadro-chave anterior, com tempo negativo antes do
+                        // ponto pedido; o Transformer precisa de um arquivo com tempos a partir de zero.
+                        val preroll = withContext(Dispatchers.IO) { LocalCutter.prerollSeconds(app, input) }
+                            ?: throw IOException("não deu para medir o início do trecho")
+                        if (preroll > 0.01) {
+                            source = File(input.parentFile, "limpo-" + input.name)
+                            val ok = withContext(Dispatchers.IO) { LocalCutter.remuxClean(app, input, source) }
+                            if (!ok) throw IOException("não deu para preparar o trecho")
+                        } else {
+                            source = input
+                        }
+                        startMs = (preroll * 1000).roundToLong()
+                        endMs = startMs + clip.lengthSec * 1000
+                    }
+                    is Clip.Range -> {
                         source = input
+                        startMs = clip.startSec * 1000
+                        endMs = startMs + clip.lengthSec * 1000
                     }
-                    startMs = (preroll * 1000).roundToLong()
-                } else {
-                    source = input
-                    startMs = startSec * 1000
-                }
-                TransformerCutter.cut(app, source, output, startMs, startMs + lengthSec * 1000) { fraction ->
-                    val now = System.currentTimeMillis()
-                    if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
-                        lastEmit = now
-                        mutate(id) { it.copy(progress = from + (1 - from) * fraction) }
+                    Clip.Whole -> {
+                        source = input
+                        startMs = null
+                        endMs = null
                     }
                 }
+                val crop = reframe?.let { frameCrop(source, it) }
+                if (clip == Clip.Whole && crop == null) throw IOException("nada para recortar")
+                TransformerCutter.cut(app, source, output, startMs, endMs, crop, report)
                 if (output.isFile && output.length() > 0L) return true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Transformer não cortou $id; usando o FFmpeg", e)
+                Log.w(TAG, "Transformer não processou $id; usando o FFmpeg", e)
                 if (forcedCutEngine == CutEngine.TRANSFORMER) {
                     lastCutError[id] = e
                     return false
@@ -312,18 +350,18 @@ object Downloads {
             output.delete()
             if (id in cancelled) return false
         }
+        val (startSec, lengthSec) = when (clip) {
+            is Clip.Section -> null to clip.lengthSec
+            is Clip.Range -> clip.startSec to clip.lengthSec
+            Clip.Whole -> null to null
+        }
+        val totalSec = lengthSec?.toDouble() ?: VideoShape.durationSec(input) ?: task.durationSec ?: 1.0
         return try {
             LocalCutter.cut(
-                app, input, output, startSec, lengthSec, task.quality,
+                app, input, output, startSec, lengthSec, totalSec, task.quality, reframe,
                 register = { cutProcesses[id] = it },
                 isCancelled = { id in cancelled },
-                onProgress = { fraction ->
-                    val now = System.currentTimeMillis()
-                    if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
-                        lastEmit = now
-                        mutate(id) { it.copy(progress = from + (1 - from) * fraction) }
-                    }
-                },
+                onProgress = report,
             )
             true
         } catch (e: Exception) {
@@ -333,6 +371,62 @@ object Downloads {
         } finally {
             cutProcesses.remove(id)
         }
+    }
+
+    /** Janela e tamanho final do recorte; null quando o vídeo já está no formato pedido. */
+    private fun frameCrop(file: File, reframe: Reframe): TransformerCutter.FrameCrop? {
+        val (width, height) = VideoShape.size(file) ?: throw IOException("não deu para ler o tamanho do vídeo")
+        val window = reframe.window(width.toFloat() / height) ?: return null
+        val cropWidth = ((width * window.width).roundToInt() / 2 * 2).coerceAtLeast(2)
+        val cropHeight = ((height * window.height).roundToInt() / 2 * 2).coerceAtLeast(2)
+        return TransformerCutter.FrameCrop(window, cropWidth, cropHeight)
+    }
+
+    /** Nome do arquivo final: ganha " vertical" ou " horizontal" quando o quadro é recortado. */
+    private fun outputName(task: DownloadTask, base: String, ext: String): String {
+        val word = task.reframe?.takeIf { ext != "mp3" }?.let { " ${it.framing.word}" }.orEmpty()
+        return base.take(120) + word + "." + ext
+    }
+
+    /**
+     * Sem corte de tempo: recorta cada vídeo baixado para o formato pedido. Vídeo que já está no
+     * formato fica como veio; se o recorte falhar, avisa em vez de salvar no formato errado.
+     */
+    private suspend fun reframeAll(task: DownloadTask, files: List<File>, workDir: File) {
+        val id = task.id
+        val reframe = task.reframe ?: return save(task, files)
+        val finals = mutableListOf<File>()
+        for (input in files) {
+            if (id in cancelled) {
+                mutate(id) { it.canceled() }
+                return
+            }
+            if (input.extension.lowercase() !in VIDEO_EXTENSIONS) {
+                finals += input
+                continue
+            }
+            val size = VideoShape.size(input)
+            if (size != null && reframe.window(size.first.toFloat() / size.second) == null) {
+                Log.i(TAG, "${input.name} já está na ${reframe.framing.word}")
+                finals += input
+                continue
+            }
+            val output = File(File(workDir, "formato").apply { mkdirs() }, outputName(task, input.nameWithoutExtension, "mp4"))
+            if (!cutLocally(task, input, output, Clip.Whole, DOWNLOAD_SHARE)) {
+                if (id in cancelled) {
+                    mutate(id) { it.canceled() }
+                    return
+                }
+                val error = lastCutError.remove(id)
+                val details = (error as? CutException)?.details ?: error?.message.orEmpty()
+                fail(id, task, error?.message ?: "Falha ao recortar", details,
+                    friendly = "Não consegui deixar o vídeo na ${reframe.framing.word}.")
+                return
+            }
+            input.delete()
+            finals += output
+        }
+        save(task, finals)
     }
 
     private val lastCutError = ConcurrentHashMap<String, Exception>()
@@ -361,8 +455,8 @@ object Downloads {
                 return
             }
             val ext = if (task.mode == DownloadMode.AUDIO) "mp3" else "mp4"
-            val output = File(File(dir, "corte").apply { mkdirs() }, input.nameWithoutExtension.take(120) + section + "." + ext)
-            if (!cutLocally(task, input, output, trim.startSec, trim.lengthSec, DOWNLOAD_SHARE)) {
+            val output = File(File(dir, "corte").apply { mkdirs() }, outputName(task, input.nameWithoutExtension.take(120) + section, ext))
+            if (!cutLocally(task, input, output, Clip.Range(trim.startSec, trim.lengthSec), DOWNLOAD_SHARE)) {
                 if (id in cancelled) {
                     mutate(id) { it.canceled() }
                     return
@@ -668,6 +762,7 @@ object Downloads {
     }
 
     private val TEMP_EXTENSIONS = setOf("part", "ytdl", "temp", "tmp", "json")
+    private val VIDEO_EXTENSIONS = setOf("mp4", "m4v", "mov", "mkv", "webm")
 
     /**
      * Estado de um processo em andamento; tocado pela thread que lê a saída do yt-dlp (e só

@@ -34,7 +34,9 @@ import com.joohn.baixavideos.ui.components.CharisLogo
 import com.joohn.baixavideos.ui.components.CreamCard
 import com.joohn.baixavideos.ui.components.PrimaryButton
 import com.joohn.baixavideos.ui.theme.Charis
+import com.joohn.baixavideos.ui.trim.FormatCard
 import com.joohn.baixavideos.ui.trim.TrimCard
+import com.joohn.baixavideos.ui.trim.rememberPreview
 import kotlinx.coroutines.launch
 
 /** Janela de opções que sobe por cima do app que compartilhou o link. */
@@ -54,6 +56,7 @@ fun ShareSheet(
         scope.launch { sheetState.hide() }.invokeOnCompletion { action() }
     }
     val start = rememberDownloadStarter(holder) { task -> hideThen { onStarted(task) } }
+    val preview = rememberPreview(draft)
 
     ModalBottomSheet(
         onDismissRequest = onClose,
@@ -102,8 +105,11 @@ fun ShareSheet(
             } else {
                 InfoCard(draft, color = Charis.Cream2)
                 ModeTabs(draft, onDark = false)
-                if (draft.mode == DownloadMode.VIDEO) QualityPills(draft, idleColor = Charis.Cream2)
-                TrimCard(draft, cardColor = Charis.Cream2, boxColor = Charis.Cream)
+                if (draft.mode == DownloadMode.VIDEO) {
+                    QualityPills(draft, idleColor = Charis.Cream2)
+                    FormatCard(draft, preview, cardColor = Charis.Cream2, boxColor = Charis.Cream)
+                }
+                TrimCard(draft, preview, cardColor = Charis.Cream2, boxColor = Charis.Cream)
                 DownloadButton(draft, onClick = { draft.toStart()?.let(start) })
                 TextButton(onClick = onOpenApp, modifier = Modifier.fillMaxWidth()) {
                     Text("Abrir o Charis Downloader", color = Charis.SageDeep, style = MaterialTheme.typography.labelLarge)

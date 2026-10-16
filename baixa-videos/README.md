@@ -20,9 +20,9 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
 | --- | --- | --- | --- | --- |
 | ![Boas-vindas](docs/screenshots/01_boas_vindas.png) | ![Início](docs/screenshots/02_inicio.png) | ![Corte](docs/screenshots/03_corte_com_previa.png) | ![Baixando](docs/screenshots/04_baixando.png) | ![Concluído](docs/screenshots/05_concluido.png) |
 
-| Ajustes | Compartilhar | Compartilhar com corte | Busca |
-| --- | --- | --- | --- |
-| ![Ajustes](docs/screenshots/06_ajustes.png) | ![Compartilhar](docs/screenshots/07_compartilhar.png) | ![Compartilhar com corte](docs/screenshots/08_compartilhar_corte.png) | ![Busca](docs/screenshots/09_busca.png) |
+| Ajustes | Compartilhar | Compartilhar com corte | Busca | Formato |
+| --- | --- | --- | --- | --- |
+| ![Ajustes](docs/screenshots/06_ajustes.png) | ![Compartilhar](docs/screenshots/07_compartilhar.png) | ![Compartilhar com corte](docs/screenshots/08_compartilhar_corte.png) | ![Busca](docs/screenshots/09_busca.png) | ![Formato](docs/screenshots/10_formato.png) |
 
 ## Usar
 
@@ -33,6 +33,10 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
 - **Cortar trecho:** ligue o corte, arraste as duas alças (ou toque em Início e Fim para digitar o
   tempo exato) e toque no play da prévia para assistir só a parte que vai ser baixada. O app baixa
   só o trecho e acerta o corte no próprio celular, com barra de progresso.
+- **Formato do vídeo:** escolha **Original**, **Vertical** (9:16, para Reels, TikTok e Status) ou
+  **Horizontal** (16:9). A prévia mostra a parte do quadro que fica; arraste a moldura ou use o
+  ajuste de posição (esquerda/direita ou topo/base). Funciona junto com o corte de trecho. Vídeo
+  que já está no formato escolhido sai como veio.
 - **Músicas em MP3:** o arquivo e o título ficam só com o nome da música ("Bohemian Rhapsody.mp3"),
   e as etiquetas trazem artista, álbum, artista do álbum, ano, gênero, número da faixa, a capa do
   álbum e a letra (sincronizada quando existe), que players como Samsung Music, Poweramp e o
@@ -62,6 +66,9 @@ Requer Android 7.0 ou mais novo. A página `index.html` desta pasta é a prévia
   escolhido. Se o Transformer não conseguir, o FFmpeg recodifica o trecho com o x264 no modo mais
   rápido. Se baixar só o trecho falhar ou ficar 60 segundos sem resposta, o app baixa o vídeo
   inteiro e corta no aparelho.
+- O formato recorta o quadro no aparelho com o Media3 Transformer (codificador de hardware), no
+  mesmo passo do corte de trecho quando os dois estão ligados. O FFmpeg (filtro `crop`, x264) é a
+  reserva.
 - No MP3, o app junta o que o YouTube informa da música (faixa, artistas, álbum) com o título do
   vídeo sem "(Official Video)", "[Clipe Oficial]" etc., e confere no catálogo público do iTunes
   (nome oficial, álbum, ano, gênero, faixa e a capa em 1000x1000). A letra vem do

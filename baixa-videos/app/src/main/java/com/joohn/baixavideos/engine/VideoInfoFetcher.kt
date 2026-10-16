@@ -93,7 +93,7 @@ object VideoInfoFetcher {
         // Para a prévia: arquivo único em http(s) e resolução baixa, que abrem rápido no player.
         addOption("-S", "proto,res:480,+codec:avc:m4a")
         addOption("-f", "b/bv*+ba")
-        addOption("--print", "$INFO_PREFIX%(.{id,title,thumbnail,duration,uploader,channel})j")
+        addOption("--print", "$INFO_PREFIX%(.{id,title,thumbnail,duration,uploader,channel,width,height})j")
         addOption("--print", "$STREAMS_PREFIX%(requested_formats.:.{$STREAM_FIELDS}|null)j")
         addOption("--print", "$SINGLE_PREFIX%(.{$STREAM_FIELDS})j")
         if (cookies != null) addOption("--cookies", cookies.absolutePath)
@@ -116,6 +116,10 @@ object VideoInfoFetcher {
             thumbnail = o.text("thumbnail"),
             durationSec = o.optDouble("duration").takeIf { !it.isNaN() && it > 0 },
             preview = preview,
+            aspect = o.optDouble("width").let { w ->
+                val h = o.optDouble("height")
+                if (w.isNaN() || h.isNaN() || w <= 0 || h <= 0) null else (w / h).toFloat()
+            },
         )
     }
 

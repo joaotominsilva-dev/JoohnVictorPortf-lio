@@ -12,6 +12,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.Downloads
+import com.joohn.baixavideos.engine.Framing
+import com.joohn.baixavideos.engine.Reframe
 import com.joohn.baixavideos.engine.YouTubeSearch
 import com.joohn.baixavideos.engine.SavedFile
 import com.joohn.baixavideos.engine.TaskStatus
@@ -151,6 +153,70 @@ class EngineSmokeTest {
             }
         } finally {
             Downloads.forcedCutEngine = null
+        }
+    }
+
+    /**
+     * Formato: o vídeo deitado (320x180) recortado para vertical, inteiro e num trecho, pelos dois
+     * motores. Pedir horizontal de um vídeo que já é deitado entrega o vídeo como veio.
+     */
+    @Test
+    fun reframesToVerticalWithBothEngines(): Unit = runBlocking {
+        TestSupport.awaitEngine(context)
+        TestHttpServer(TestSupport.testAssets, "dash").use { server ->
+            val whole = TestSupport.download(context, server.url("Formato.mpd"), DownloadMode.VIDEO, reframe = Reframe(Framing.VERTICAL))
+            assertEquals(whole.errorDetails, TaskStatus.DONE, whole.status)
+            val file = whole.files.single()
+            val (w, h) = frameSize(file)
+            Log.i(TAG, "Formato vertical inteiro: ${file.name} | ${w}x$h | ${durationMs(file)} ms | ${videoMime(file)}")
+            assertTrue("não ficou em pé: ${w}x$h", h > w && kotlin.math.abs(w.toFloat() / h - 9f / 16f) < 0.06f)
+            assertTrue("nome sem o formato: ${file.name}", file.name.contains("vertical"))
+
+            val same = TestSupport.download(context, server.url("Deitado.mpd"), DownloadMode.VIDEO, reframe = Reframe(Framing.HORIZONTAL))
+            assertEquals(same.errorDetails, TaskStatus.DONE, same.status)
+            val (sw, sh) = frameSize(same.files.single())
+            Log.i(TAG, "Formato horizontal de vídeo deitado: ${same.files.single().name} | ${sw}x$sh")
+            assertEquals(320 to 180, sw to sh)
+        }
+        try {
+            TestHttpServer(TestSupport.testAssets, "dashgop").use { server ->
+                val frames = mutableMapOf<Downloads.CutEngine, Bitmap>()
+                for (engine in Downloads.CutEngine.entries) {
+                    Downloads.forcedCutEngine = engine
+                    val started = System.currentTimeMillis()
+                    val task = TestSupport.download(
+                        context, server.url("Gop vertical.mpd"), DownloadMode.VIDEO,
+                        trim = Trim(1, 3), reframe = Reframe(Framing.VERTICAL, position = 0f),
+                    )
+                    val seconds = (System.currentTimeMillis() - started) / 1000.0
+                    assertEquals("$engine: ${task.errorDetails}", TaskStatus.DONE, task.status)
+                    val file = task.files.single()
+                    val ms = durationMs(file)
+                    val (w, h) = frameSize(file)
+                    Log.i(TAG, "Trecho vertical $engine: ${file.name} | ${w}x$h | $ms ms | ${seconds}s")
+                    assertTrue("$engine duração: $ms ms", ms in 1700L..2300L)
+                    assertTrue("$engine não ficou em pé: ${w}x$h", h > w)
+                    frames[engine] = firstFrame(file)
+                }
+                val diff = meanDifference(frames.getValue(Downloads.CutEngine.TRANSFORMER), frames.getValue(Downloads.CutEngine.FFMPEG))
+                Log.i(TAG, "Diferença do recorte (Transformer x FFmpeg): $diff")
+                assertTrue("os motores recortaram partes diferentes (diferença $diff)", diff < 8.0)
+            }
+        } finally {
+            Downloads.forcedCutEngine = null
+        }
+    }
+
+    private fun frameSize(file: SavedFile): Pair<Int, Int> {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, Uri.parse(file.uri))
+            val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: -1
+            val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: -1
+            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+            return if (rotation % 180 != 0) h to w else w to h
+        } finally {
+            retriever.release()
         }
     }
 

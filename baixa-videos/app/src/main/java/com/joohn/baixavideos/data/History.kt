@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.DownloadTask
+import com.joohn.baixavideos.engine.Framing
+import com.joohn.baixavideos.engine.Reframe
 import com.joohn.baixavideos.engine.SavedFile
 import com.joohn.baixavideos.engine.TaskStatus
 import com.joohn.baixavideos.engine.Trim
@@ -51,6 +53,10 @@ internal object History {
             put("trimStart", it.startSec)
             put("trimEnd", it.endSec)
         }
+        task.reframe?.let {
+            put("framing", it.framing.name)
+            put("framePosition", it.position.toDouble())
+        }
         task.durationSec?.let { put("durationSec", it) }
         put("title", task.title)
         put("uploader", task.uploader)
@@ -77,6 +83,13 @@ internal object History {
             quality = runCatching { VideoQuality.valueOf(o.getString("quality")) }.getOrDefault(VideoQuality.P1080),
             trim = if (o.has("trimStart") && o.has("trimEnd")) {
                 runCatching { Trim(o.getLong("trimStart"), o.getLong("trimEnd")) }.getOrNull()
+            } else {
+                null
+            },
+            reframe = if (o.has("framing")) {
+                runCatching {
+                    Reframe(Framing.valueOf(o.getString("framing")), o.optDouble("framePosition", 0.5).toFloat())
+                }.getOrNull()
             } else {
                 null
             },

@@ -13,6 +13,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.joohn.baixavideos.data.Prefs
 import com.joohn.baixavideos.engine.Downloads
+import com.joohn.baixavideos.engine.Framing
 import com.joohn.baixavideos.engine.TaskStatus
 import com.joohn.baixavideos.ui.DownloadDraft
 import com.joohn.baixavideos.ui.InfoState
@@ -58,6 +59,16 @@ class ScreenshotTest {
                 awaitInfo(scenario) { home }
                 settle()
                 TestSupport.screenshot(device, context, "02_inicio")
+
+                // Formato vertical: a prévia mostra a moldura da parte do quadro que fica.
+                scenario.onActivity { home.selectFraming(Framing.VERTICAL) }
+                waitUntil(20.seconds) { onMain(scenario) { home.durationSec != null } }
+                scrollDown()
+                delay(2_500)
+                TestSupport.screenshot(device, context, "10_formato")
+                scenario.onActivity { home.selectFraming(Framing.ORIGINAL) }
+                scrollUp()
+                settle()
 
                 // Liga o corte; a duração vem do player da prévia (o link de teste não informa).
                 scenario.onActivity { home.setTrimEnabled(true) }
@@ -156,6 +167,13 @@ class ScreenshotTest {
         val w = device.displayWidth
         val h = device.displayHeight
         device.swipe(w / 2, (h * 0.75).toInt(), w / 2, (h * 0.3).toInt(), 30)
+        device.waitForIdle()
+    }
+
+    private fun scrollUp() {
+        val w = device.displayWidth
+        val h = device.displayHeight
+        device.swipe(w / 2, (h * 0.3).toInt(), w / 2, (h * 0.75).toInt(), 30)
         device.waitForIdle()
     }
 

@@ -41,7 +41,9 @@ import com.joohn.baixavideos.ui.components.SmallPill
 import com.joohn.baixavideos.ui.components.TopBar
 import com.joohn.baixavideos.ui.components.well
 import com.joohn.baixavideos.ui.theme.Charis
+import com.joohn.baixavideos.ui.trim.FormatCard
 import com.joohn.baixavideos.ui.trim.TrimCard
+import com.joohn.baixavideos.ui.trim.rememberPreview
 import java.util.Calendar
 
 @Composable
@@ -50,6 +52,7 @@ fun HomeScreen(vm: MainViewModel, onStarted: (DownloadTask) -> Unit) {
     val context = LocalContext.current
     val engine by Engine.state.collectAsStateWithLifecycle()
     val update by Engine.update.collectAsStateWithLifecycle()
+    val preview = rememberPreview(draft)
     val start = rememberDownloadStarter(vm) { task ->
         draft.reset()
         onStarted(task)
@@ -101,8 +104,11 @@ fun HomeScreen(vm: MainViewModel, onStarted: (DownloadTask) -> Unit) {
                     )
                 }
                 InfoCard(draft)
-                if (draft.mode == DownloadMode.VIDEO) QualityCard(draft)
-                TrimCard(draft)
+                if (draft.mode == DownloadMode.VIDEO) {
+                    QualityCard(draft)
+                    FormatCard(draft, preview)
+                }
+                TrimCard(draft, preview)
                 DownloadButton(draft, onClick = { draft.toStart()?.let(start) })
             }
             BottomSpace()

@@ -1,6 +1,5 @@
 package com.joohn.baixavideos.ui.trim
 
-import android.view.TextureView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -9,33 +8,25 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,25 +43,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.compose.LifecycleStartEffect
-import coil.compose.AsyncImage
-import com.joohn.baixavideos.engine.VideoInfo
 import com.joohn.baixavideos.ui.DownloadDraft
 import com.joohn.baixavideos.ui.InfoState
 import com.joohn.baixavideos.ui.components.CharisSwitch
 import com.joohn.baixavideos.ui.components.CreamCard
-import com.joohn.baixavideos.ui.theme.CardLabelStyle
 import com.joohn.baixavideos.ui.theme.Charis
 import com.joohn.baixavideos.util.Formats
 import kotlin.math.abs
@@ -85,6 +67,7 @@ private enum class Handle { START, END }
 @Composable
 fun TrimCard(
     draft: DownloadDraft,
+    controller: PreviewController?,
     modifier: Modifier = Modifier,
     cardColor: Color = Charis.Cream,
     boxColor: Color = Charis.Cream2,
@@ -111,21 +94,14 @@ fun TrimCard(
             )
         }
         AnimatedVisibility(visible = draft.trimOn) {
-            TrimEditor(draft, boxColor)
+            TrimEditor(draft, controller, boxColor)
         }
     }
 }
 
 @Composable
-private fun TrimEditor(draft: DownloadDraft, boxColor: Color) {
+private fun TrimEditor(draft: DownloadDraft, controller: PreviewController?, boxColor: Color) {
     val info = draft.loadedInfo
-    val context = LocalContext.current
-    val controller = remember(info) {
-        info?.takeIf { it.preview.isNotEmpty() }?.let { PreviewController(context, it, draft::onPlayerDuration) }
-    }
-    DisposableEffect(controller) { onDispose { controller?.release() } }
-    LifecycleStartEffect(controller) { onStopOrDispose { controller?.pause() } }
-    if (controller != null) LaunchedEffect(controller) { controller.track() }
 
     // Abre mostrando o quadro do início do trecho.
     LaunchedEffect(controller) { controller?.showFrame(draft.trimStart, dragging = false) }
@@ -134,7 +110,15 @@ private fun TrimEditor(draft: DownloadDraft, boxColor: Color) {
     var editing by remember { mutableStateOf<Handle?>(null) }
 
     Column(Modifier.padding(top = 12.dp)) {
-        PreviewBox(info, controller, draft)
+        val length = (draft.trimEnd - draft.trimStart).coerceAtLeast(0L)
+        PreviewBox(
+            info = info,
+            controller = controller,
+            label = "PRÉVIA DO CORTE",
+            caption = if (length > 0) "trecho ${Formats.clock(length)}" else null,
+            onPlay = { controller?.playRange(draft.trimStart, draft.trimEnd) },
+            guide = frameGuide(draft, controller),
+        )
         if (duration != null) {
             Spacer(Modifier.height(10.dp))
             TrimTimeline(
@@ -184,110 +168,6 @@ private fun TrimEditor(draft: DownloadDraft, boxColor: Color) {
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun PreviewBox(info: VideoInfo?, controller: PreviewController?, draft: DownloadDraft) {
-    val videoAspect = controller?.videoAspect ?: 0f
-    // Vídeos em pé (TikTok, Reels) ganham um quadro quadrado; os deitados ficam em 16:9.
-    val boxAspect = if (videoAspect > 0f) videoAspect.coerceIn(1f, 16f / 9f) else 16f / 9f
-    val canPlay = controller != null && controller.player != null && !controller.failed
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(boxAspect)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Charis.Charcoal)
-            .clickable(enabled = canPlay, role = Role.Button) {
-                if (controller!!.playing) controller.pause() else controller.playRange(draft.trimStart, draft.trimEnd)
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        if (info?.thumbnail != null && controller?.hasFrame != true) {
-            AsyncImage(
-                model = info.thumbnail,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize(),
-            )
-        }
-        val player = controller?.player
-        if (player != null && controller?.failed == false) {
-            val videoModifier = if (videoAspect > 0f) {
-                Modifier.aspectRatio(videoAspect, matchHeightConstraintsFirst = videoAspect < boxAspect)
-            } else {
-                Modifier.fillMaxSize()
-            }
-            AndroidView(
-                factory = { TextureView(it).also(player::setVideoTextureView) },
-                onRelease = { player.clearVideoTextureView(it) },
-                modifier = videoModifier,
-            )
-        }
-        Text(
-            "PRÉVIA DO CORTE",
-            style = CardLabelStyle.copy(fontSize = 9.sp),
-            color = Charis.Cream,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(8.dp)
-                .background(Charis.Ink.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
-        when {
-            controller == null || controller.failed -> Text(
-                "Sem prévia para este link.\nO corte funciona mesmo assim.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Charis.Cream,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .background(Charis.Ink.copy(alpha = 0.72f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
-            controller.buffering && !controller.playing -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = Charis.Cream, strokeWidth = 2.5.dp, modifier = Modifier.size(28.dp))
-                if (controller.loadingCopy) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Preparando a prévia…",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Charis.Cream,
-                        modifier = Modifier
-                            .background(Charis.Ink.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-            }
-            else -> Box(
-                Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(Charis.Cream.copy(alpha = if (controller.playing) 0.55f else 0.92f))
-                    .semantics { contentDescription = if (controller.playing) "Pausar a prévia" else "Assistir o trecho" },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    if (controller.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = Charis.Charcoal,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
-        if (controller != null && !controller.failed) {
-            val length = (draft.trimEnd - draft.trimStart).coerceAtLeast(0L)
-            Text(
-                Formats.clock(controller.positionMs / 1000) + if (length > 0) " · trecho ${Formats.clock(length)}" else "",
-                style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                color = Charis.Cream,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .background(Charis.Ink.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-        }
     }
 }
 

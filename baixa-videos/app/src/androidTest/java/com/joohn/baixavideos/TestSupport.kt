@@ -12,6 +12,7 @@ import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.DownloadTask
 import com.joohn.baixavideos.engine.Downloads
 import com.joohn.baixavideos.engine.Engine
+import com.joohn.baixavideos.engine.Reframe
 import com.joohn.baixavideos.engine.Trim
 import com.joohn.baixavideos.engine.VideoQuality
 import kotlinx.coroutines.flow.filterNotNull
@@ -64,8 +65,9 @@ object TestSupport {
         quality: VideoQuality = VideoQuality.P720,
         timeout: Duration = 5.minutes,
         trim: Trim? = null,
+        reframe: Reframe? = null,
     ): DownloadTask {
-        val task = Downloads.enqueue(context, url, mode, quality, trim)
+        val task = Downloads.enqueue(context, url, mode, quality, trim, reframe = reframe)
         val stages = mutableListOf<String>()
         val result = withTimeoutOrNull(timeout) {
             Downloads.tasks

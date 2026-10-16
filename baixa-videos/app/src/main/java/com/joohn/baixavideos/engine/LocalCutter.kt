@@ -83,17 +83,21 @@ internal object LocalCutter {
             .joinToString(":") { it.absolutePath }
 
     /**
-     * Grava em [output] [lengthSec] segundos de [input], a partir de [startSec] (ou do começo do
-     * arquivo, quando ele já é o trecho baixado). O MP4 sai em H.264 + AAC e o MP3 em MP3.
-     * Recodificar é o que faz o corte cair no segundo exato. Bloqueia até terminar.
+     * Grava em [output] [lengthSec] segundos de [input] (até o fim, se null), a partir de
+     * [startSec] (ou do começo do arquivo, quando ele já é o trecho baixado), recortado por
+     * [reframe] quando ele vem. O MP4 sai em H.264 + AAC e o MP3 em MP3. Recodificar é o que faz o
+     * corte cair no segundo exato. [totalSec] é a duração do resultado, para a barra de progresso.
+     * Bloqueia até terminar.
      */
     fun cut(
         context: Context,
         input: File,
         output: File,
         startSec: Long?,
-        lengthSec: Long,
+        lengthSec: Long?,
+        totalSec: Double,
         quality: VideoQuality,
+        reframe: Reframe? = null,
         register: (Process) -> Unit,
         isCancelled: () -> Boolean,
         onProgress: (Float) -> Unit,
@@ -104,7 +108,10 @@ internal object LocalCutter {
         for (encoder in attempts) {
             if (isCancelled()) throw CutException("Cancelado.", "")
             val started = System.currentTimeMillis()
-            val result = run(context, args(context, input, output, startSec, lengthSec, quality, encoder), lengthSec, register, onProgress)
+            val result = run(
+                context, args(context, input, output, startSec, lengthSec, quality, reframe, encoder),
+                totalSec, register, onProgress,
+            )
             val seconds = (System.currentTimeMillis() - started) / 1000.0
             if (result.code == 0 && output.isFile && output.length() > 0L) {
                 Log.i(TAG, "Corte pronto com ${encoder ?: "mp3"} em ${seconds}s: ${output.name}")
@@ -122,14 +129,18 @@ internal object LocalCutter {
         input: File,
         output: File,
         startSec: Long?,
-        lengthSec: Long,
+        lengthSec: Long?,
         quality: VideoQuality,
+        reframe: Reframe?,
         encoder: VideoEncoder?,
     ): List<String> = buildList {
         add(binary(context).absolutePath)
         addAll(listOf("-y", "-hide_banner", "-nostdin"))
         if (startSec != null && startSec > 0) addAll(listOf("-ss", startSec.toString()))
-        addAll(listOf("-i", input.absolutePath, "-t", lengthSec.toString(), "-map_metadata", "0"))
+        addAll(listOf("-i", input.absolutePath))
+        if (lengthSec != null) addAll(listOf("-t", lengthSec.toString()))
+        addAll(listOf("-map_metadata", "0"))
+        if (encoder != null && reframe != null) addAll(listOf("-vf", cropFilter(reframe)))
         when (encoder) {
             null -> addAll(listOf("-map", "0:a:0", "-c:a", "libmp3lame", "-b:a", "192k", "-id3v2_version", "3"))
             VideoEncoder.SOFTWARE -> addAll(
@@ -143,6 +154,17 @@ internal object LocalCutter {
         add(output.absolutePath)
     }
 
+    /**
+     * Filtro de recorte do FFmpeg: a maior janela com a proporção pedida, deslizada pela posição
+     * escolhida, com medidas pares. Se o vídeo já tem a proporção, a janela é o quadro inteiro.
+     */
+    internal fun cropFilter(reframe: Reframe): String {
+        val a = String.format(java.util.Locale.US, "%.6f", reframe.aspect)
+        val p = String.format(java.util.Locale.US, "%.4f", reframe.position)
+        return "crop=w=trunc(min(iw\\,ih*$a)/2)*2:h=trunc(min(ih\\,iw/$a)/2)*2:" +
+            "x=trunc((iw-ow)*$p/2)*2:y=trunc((ih-oh)*$p/2)*2"
+    }
+
     /** O modo mais rápido do x264 comprime menos; um CRF um pouco maior segura o tamanho. */
     private fun crf(quality: VideoQuality): String = if (quality == VideoQuality.BEST) "20" else "23"
 
@@ -151,7 +173,7 @@ internal object LocalCutter {
     private fun run(
         context: Context,
         args: List<String>,
-        lengthSec: Long,
+        totalSec: Double,
         register: (Process) -> Unit,
         onProgress: (Float) -> Unit,
     ): Result {
@@ -169,7 +191,7 @@ internal object LocalCutter {
                         val text = line.toString()
                         val time = OutputParser.ffmpegTime(text)
                         if (time != null) {
-                            onProgress((time / lengthSec.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f))
+                            onProgress((time / totalSec.coerceAtLeast(1.0)).toFloat().coerceIn(0f, 1f))
                         } else {
                             tail.addLast(text)
                             if (tail.size > TAIL_LINES) tail.removeFirst()

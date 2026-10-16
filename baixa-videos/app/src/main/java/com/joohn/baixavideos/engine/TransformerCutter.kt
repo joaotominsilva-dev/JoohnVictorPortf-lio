@@ -9,7 +9,11 @@ import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.Crop
+import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
@@ -24,20 +28,28 @@ import kotlin.coroutines.resumeWithException
 /**
  * Corta vídeo com o Media3 Transformer, dentro do app: usa o codificador de hardware do celular
  * e, com a otimização de corte, recodifica só o começo do trecho (até o próximo quadro-chave) e
- * copia o resto sem recodificar. É o caminho rápido; o FFmpeg fica de reserva.
+ * copia o resto sem recodificar. Também recorta o quadro (vertical ou horizontal), e aí recodifica
+ * tudo. É o caminho rápido; o FFmpeg fica de reserva.
  */
 @OptIn(UnstableApi::class)
 internal object TransformerCutter {
     private const val TAG = "TransformerCutter"
     private const val PROGRESS_INTERVAL_MS = 300L
 
-    /** Grava em [output] o trecho [startMs]..[endMs] de [input] (MP4 com H.264 + AAC). */
+    /** Recorte do quadro: a janela e o tamanho final em pixels (pares, como o H.264 pede). */
+    class FrameCrop(val window: CropWindow, val width: Int, val height: Int)
+
+    /**
+     * Grava em [output] (MP4 com H.264 + AAC) o trecho [startMs]..[endMs] de [input] (o vídeo
+     * inteiro quando os dois são null), recortado por [crop] quando ele vem.
+     */
     suspend fun cut(
         context: Context,
         input: File,
         output: File,
-        startMs: Long,
-        endMs: Long,
+        startMs: Long?,
+        endMs: Long?,
+        crop: FrameCrop? = null,
         onProgress: (Float) -> Unit,
     ) = withContext(Dispatchers.Main) {
         val started = System.currentTimeMillis()
@@ -56,7 +68,8 @@ internal object TransformerCutter {
             transformer = Transformer.Builder(context.applicationContext)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
-                .experimentalSetTrimOptimizationEnabled(true)
+                // A otimização só copia o meio do trecho; com recorte, todo quadro muda.
+                .experimentalSetTrimOptimizationEnabled(crop == null && startMs != null)
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         handler.removeCallbacks(poll)
@@ -80,16 +93,30 @@ internal object TransformerCutter {
                     }
                 })
                 .build()
-            val item = MediaItem.Builder()
-                .setUri(Uri.fromFile(input))
-                .setClippingConfiguration(
-                    MediaItem.ClippingConfiguration.Builder()
-                        .setStartPositionMs(startMs)
-                        .setEndPositionMs(endMs)
-                        .build(),
+            val item = MediaItem.Builder().setUri(Uri.fromFile(input)).apply {
+                if (startMs != null && endMs != null) {
+                    setClippingConfiguration(
+                        MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(startMs)
+                            .setEndPositionMs(endMs)
+                            .build(),
+                    )
+                }
+            }.build()
+            if (crop == null) {
+                transformer.start(item, output.absolutePath)
+            } else {
+                // O Crop usa coordenadas de -1 a 1, com o y crescendo para cima.
+                val w = crop.window
+                val left = -1f + 2f * w.left
+                val top = 1f - 2f * w.top
+                val effects = listOf(
+                    Crop(left, left + 2f * w.width, top - 2f * w.height, top),
+                    Presentation.createForWidthAndHeight(crop.width, crop.height, Presentation.LAYOUT_STRETCH_TO_FIT),
                 )
-                .build()
-            transformer.start(item, output.absolutePath)
+                val edited = EditedMediaItem.Builder(item).setEffects(Effects(emptyList(), effects)).build()
+                transformer.start(edited, output.absolutePath)
+            }
             handler.post(poll)
             cont.invokeOnCancellation {
                 handler.post {

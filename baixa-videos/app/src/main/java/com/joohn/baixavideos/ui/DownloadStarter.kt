@@ -17,6 +17,7 @@ import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.DownloadTask
 import com.joohn.baixavideos.engine.Downloads
 import com.joohn.baixavideos.engine.MediaSaver
+import com.joohn.baixavideos.engine.Reframe
 import com.joohn.baixavideos.engine.Trim
 import com.joohn.baixavideos.engine.VideoInfo
 import com.joohn.baixavideos.engine.VideoQuality
@@ -28,8 +29,9 @@ data class PendingStart(
     val quality: VideoQuality,
     val trim: Trim?,
     val info: VideoInfo?,
+    val reframe: Reframe? = null,
 ) {
-    fun enqueue(context: Context): DownloadTask = Downloads.enqueue(context, url, mode, quality, trim, info)
+    fun enqueue(context: Context): DownloadTask = Downloads.enqueue(context, url, mode, quality, trim, info, reframe)
 }
 
 /** Guarda o download enquanto o pedido de permissão está aberto (sobrevive à rotação). */

@@ -383,10 +383,11 @@ fun QualityCard(draft: DownloadDraft, modifier: Modifier = Modifier) {
 
 fun downloadLabel(draft: DownloadDraft): String {
     val trim = draft.trim
+    val shape = draft.reframe?.let { " ${it.framing.word}" }.orEmpty()
     return when {
-        trim != null -> "Baixar trecho de ${Formats.clock(trim.lengthSec)}"
+        trim != null -> "Baixar trecho$shape de ${Formats.clock(trim.lengthSec)}"
         draft.mode == DownloadMode.AUDIO -> "Baixar áudio"
-        else -> "Baixar vídeo"
+        else -> "Baixar vídeo$shape"
     }
 }
 

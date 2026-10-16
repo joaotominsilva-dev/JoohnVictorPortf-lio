@@ -129,6 +129,7 @@ fun TaskCard(
 private fun describe(task: DownloadTask): String = listOfNotNull(
     if (task.mode == DownloadMode.AUDIO) "MP3" else "MP4 · ${task.quality.label}",
     task.trim?.let { "trecho ${Formats.clock(it.startSec)} a ${Formats.clock(it.endSec)}" },
+    task.reframe?.framing?.word,
     task.totalSize.takeIf { task.status == TaskStatus.DONE && it > 0 }?.let(Formats::bytes),
 ).joinToString(" · ")
 

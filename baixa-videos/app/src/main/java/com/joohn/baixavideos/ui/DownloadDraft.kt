@@ -3,12 +3,15 @@ package com.joohn.baixavideos.ui
 import android.content.Context
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.joohn.baixavideos.data.Prefs
 import com.joohn.baixavideos.engine.DownloadMode
 import com.joohn.baixavideos.engine.EngineUnavailableException
+import com.joohn.baixavideos.engine.Framing
+import com.joohn.baixavideos.engine.Reframe
 import com.joohn.baixavideos.engine.SearchException
 import com.joohn.baixavideos.engine.SearchResult
 import com.joohn.baixavideos.engine.Trim
@@ -75,6 +78,12 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
         private set
     var trimEnd by mutableLongStateOf(0L)
         private set
+    var framing by mutableStateOf(Framing.ORIGINAL)
+        private set
+
+    /** Que parte do quadro fica no recorte: 0 esquerda (ou topo), 1 direita (ou base). */
+    var framePosition by mutableFloatStateOf(0.5f)
+        private set
 
     var search by mutableStateOf<SearchState>(SearchState.Idle)
         private set
@@ -108,6 +117,8 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
     private fun load(next: String?) {
         fetchJob?.cancel()
         trimOn = false
+        framing = Framing.ORIGINAL
+        framePosition = 0.5f
         playerDurationSec = null
         if (next == null) {
             info = InfoState.Empty
@@ -200,6 +211,19 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
         Prefs.update { it.copy(quality = value) }
     }
 
+    fun selectFraming(value: Framing) {
+        framing = value
+        framePosition = 0.5f
+    }
+
+    fun setFramePosition(value: Float) {
+        framePosition = value.coerceIn(0f, 1f)
+    }
+
+    /** Recorte para vertical ou horizontal; só vale para vídeo. */
+    val reframe: Reframe?
+        get() = if (mode == DownloadMode.VIDEO && framing != Framing.ORIGINAL) Reframe(framing, framePosition) else null
+
     fun setTrimEnabled(enabled: Boolean) {
         trimOn = enabled
         if (enabled) {
@@ -241,7 +265,7 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
 
     fun toStart(): PendingStart? = link?.let {
         val info = loadedInfo?.let { i -> i.copy(durationSec = i.durationSec ?: playerDurationSec) }
-        PendingStart(it, mode, quality, trim, info)
+        PendingStart(it, mode, quality, trim, info, reframe)
     }
 
     fun reset() = updateText("")
