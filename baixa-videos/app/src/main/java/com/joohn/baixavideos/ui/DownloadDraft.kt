@@ -216,7 +216,7 @@ class DownloadDraft(context: Context, private val scope: CoroutineScope) {
         framePosition = 0.5f
     }
 
-    fun setFramePosition(value: Float) {
+    fun placeFrame(value: Float) {
         framePosition = value.coerceIn(0f, 1f)
     }
 

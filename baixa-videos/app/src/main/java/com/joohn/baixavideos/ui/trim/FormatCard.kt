@@ -107,7 +107,7 @@ fun FormatCard(
             Text(from, style = MaterialTheme.typography.labelMedium, color = Charis.InkSoft)
             Slider(
                 value = draft.framePosition,
-                onValueChange = draft::setFramePosition,
+                onValueChange = draft::placeFrame,
                 colors = SliderDefaults.colors(
                     thumbColor = Charis.Charcoal,
                     activeTrackColor = Charis.Sage,

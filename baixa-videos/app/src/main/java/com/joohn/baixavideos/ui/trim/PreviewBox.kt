@@ -85,7 +85,7 @@ fun frameGuide(draft: DownloadDraft, controller: PreviewController?): FrameGuide
     val aspect = sourceAspect(draft, controller) ?: return null
     val window = reframe.window(aspect) ?: return null
     return FrameGuide(window, reframe.movesHorizontally(aspect)) { delta ->
-        draft.setFramePosition(draft.framePosition + delta)
+        draft.placeFrame(draft.framePosition + delta)
     }
 }
 
