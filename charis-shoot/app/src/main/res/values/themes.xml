@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="grafite">#20211C</color>
+    <color name="creme">#F3F4EA</color>
+    <color name="salvia">#9A9B89</color>
+    <style name="Theme.Charis" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/grafite</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
