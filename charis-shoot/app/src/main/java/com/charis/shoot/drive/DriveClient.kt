@@ -32,6 +32,9 @@ data class Photo(
     val height: Int,
     val size: Long,
     val props: Map<String, String>,
+    /** Só na fonte local: pasta onde o arquivo está e caminho relativo à pasta escolhida. */
+    val parentId: String? = null,
+    val relPath: String? = null,
 ) {
     val rating: Int get() = props[K_RATING]?.toIntOrNull() ?: 0
     val color: String get() = props[K_COLOR] ?: ""

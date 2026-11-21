@@ -1,13 +1,13 @@
 package com.charis.shoot
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import coil.ImageLoader
 import com.charis.shoot.culling.Analyzer
 import com.charis.shoot.culling.Insights
 import com.charis.shoot.culling.Sensitivity
@@ -19,16 +19,24 @@ import com.charis.shoot.drive.DriveFolder
 import com.charis.shoot.drive.Photo
 import com.charis.shoot.edit.Adjust
 import com.charis.shoot.edit.Editor
+import com.charis.shoot.source.DriveSource
+import com.charis.shoot.source.LocalImages
+import com.charis.shoot.source.LocalSource
+import com.charis.shoot.source.Loaded
+import com.charis.shoot.source.PhotoSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import kotlin.math.max
+import org.json.JSONArray
+import org.json.JSONObject
 
 sealed interface Screen {
     data object Login : Screen
@@ -53,11 +61,21 @@ enum class SeparateWhat(val label: String) { PICKS("Escolhidas"), REJECTS("Rejei
 
 data class Crumb(val id: String, val name: String)
 
+data class RecentFolder(val uri: String, val name: String)
+
 class CharisApp(val ctx: Context, private val auth: AuthManager) {
     private val scope = MainScope()
     private val prefs = ctx.getSharedPreferences("charis", Context.MODE_PRIVATE)
     val snack = SnackbarHostState()
     val sha1: String = AuthManager.signingSha1(ctx)
+
+    val imageLoader: ImageLoader = ImageLoader.Builder(ctx)
+        .components { add(LocalImages.ThumbFetcher.Factory(ctx)) }
+        .crossfade(true)
+        .build()
+
+    /** Abre o seletor de pastas do Android (definido pela Activity). */
+    var pickFolder: () -> Unit = {}
 
     var dark by mutableStateOf(prefs.getBoolean("dark", true))
         private set
@@ -72,6 +90,11 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         private set
     var loggingIn by mutableStateOf(false)
         private set
+    var recents by mutableStateOf(loadRecents())
+        private set
+
+    val signedIn get() = token != null
+    val home: Screen get() = if (signedIn) Screen.Folders else Screen.Login
 
     val drive = DriveClient { force ->
         val t = auth.getToken(interactive = true, forceRefresh = force)
@@ -80,7 +103,7 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
     }
     private val analyzer by lazy { Analyzer() }
 
-    // Pastas
+    // Pastas do Drive
     val crumbs = mutableStateListOf<Crumb>()
     var shared by mutableStateOf(false)
         private set
@@ -90,7 +113,7 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         private set
 
     // Culling
-    var folder by mutableStateOf<Crumb?>(null)
+    var source by mutableStateOf<PhotoSource?>(null)
         private set
     var photos by mutableStateOf<List<Photo>>(emptyList())
         private set
@@ -109,6 +132,7 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
     var progressText by mutableStateOf("")
         private set
     private var job: Job? = null
+    private var flushJob: Job? = null
 
     fun toast(msg: String) {
         scope.launch { snack.showSnackbar(msg) }
@@ -156,7 +180,7 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
 
     private suspend fun afterLogin() {
         runCatching { drive.about() }.onSuccess { userName = it.name; userEmail = it.email }
-        screen = Screen.Folders
+        if (screen == Screen.Login) screen = Screen.Folders
         openRoot(false)
     }
 
@@ -166,12 +190,13 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
             auth.signOut()
             token = null
             prefs.edit().putBoolean("loggedOut", true).apply()
-            crumbs.clear(); photos = emptyList(); folder = null
+            crumbs.clear()
+            if (source?.isLocal != true) { photos = emptyList(); source = null }
             screen = Screen.Login
         }
     }
 
-    // ---------- Pastas ----------
+    // ---------- Pastas do Drive ----------
 
     fun openRoot(sharedWithMe: Boolean) {
         shared = sharedWithMe
@@ -190,7 +215,6 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         loadFolders()
     }
 
-    /** Volta uma pasta; devolve false se já está na raiz. */
     fun folderBack(): Boolean {
         val min = if (shared) 0 else 1
         if (crumbs.size <= min) return false
@@ -218,7 +242,57 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
 
     fun startCulling() {
         val c = crumbs.lastOrNull() ?: return
-        folder = c
+        openSource(DriveSource(drive, c.id, c.name))
+    }
+
+    // ---------- Pastas do aparelho (memória, cartão SD, HD/pendrive USB) ----------
+
+    private fun loadRecents(): List<RecentFolder> = runCatching {
+        val arr = JSONArray(prefs.getString("recents", "[]"))
+        (0 until arr.length()).map { arr.getJSONObject(it).let { o -> RecentFolder(o.getString("uri"), o.getString("name")) } }
+    }.getOrDefault(emptyList())
+
+    private fun saveRecents(list: List<RecentFolder>) {
+        recents = list
+        val arr = JSONArray()
+        list.forEach { arr.put(JSONObject().put("uri", it.uri).put("name", it.name)) }
+        prefs.edit().putString("recents", arr.toString()).apply()
+    }
+
+    /** Chamado pela Activity com a pasta escolhida no seletor. */
+    fun onFolderPicked(tree: Uri) {
+        val name = LocalSource.displayName(ctx, tree)
+        saveRecents((listOf(RecentFolder(tree.toString(), name)) + recents.filter { it.uri != tree.toString() }).take(8))
+        openSource(LocalSource(ctx, tree, name))
+    }
+
+    fun openRecent(r: RecentFolder) {
+        val tree = Uri.parse(r.uri)
+        val ok = ctx.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isReadPermission }
+        if (!ok) {
+            saveRecents(recents.filter { it.uri != r.uri })
+            toast("Sem acesso a \"${r.name}\" (o HD ou cartão foi removido?). Escolha a pasta de novo.")
+            pickFolder()
+            return
+        }
+        openSource(LocalSource(ctx, tree, r.name))
+    }
+
+    fun forgetRecent(r: RecentFolder) {
+        runCatching {
+            ctx.contentResolver.releasePersistableUriPermission(
+                Uri.parse(r.uri),
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        }
+        saveRecents(recents.filter { it.uri != r.uri })
+    }
+
+    // ---------- Culling ----------
+
+    private fun openSource(s: PhotoSource) {
+        job?.cancel()
+        source = s
         filter = Filter.ALL
         photos = emptyList()
         insights = Insights()
@@ -226,12 +300,17 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         loadPhotos()
     }
 
+    fun closeGrid() {
+        flushNow()
+        screen = if (source?.isLocal == true) home else Screen.Folders
+    }
+
     fun loadPhotos() {
-        val f = folder ?: return
+        val s = source ?: return
         photosLoading = true
         scope.launch {
             try {
-                photos = drive.listPhotos(f.id)
+                photos = s.list()
                 recompute()
                 if (photos.isEmpty()) toast("Nenhuma foto nesta pasta.")
             } catch (e: Exception) {
@@ -271,8 +350,26 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         photos = photos.map { if (it.id == id) it.copy(props = props) else it }
     }
 
-    /** Grava na nuvem com atualização imediata na tela (e desfaz se o Drive recusar). */
+    /** Grava as marcações locais pouco depois da última mudança. */
+    private fun scheduleFlush() {
+        val s = source ?: return
+        if (!s.isLocal) return
+        flushJob?.cancel()
+        flushJob = scope.launch {
+            delay(1500)
+            runCatching { s.flush() }.onFailure { toast("Não salvou as marcações: ${it.message}") }
+        }
+    }
+
+    fun flushNow() {
+        val s = source ?: return
+        if (!s.isLocal) return
+        flushJob?.cancel()
+        scope.launch { runCatching { s.flush() } }
+    }
+
     private fun setProps(id: String, values: Map<String, String?>) {
+        val s = source ?: return
         val p = byId(id) ?: return
         val before = p.props
         val local = HashMap(before).apply { values.forEach { (k, v) -> if (v == null) remove(k) else put(k, v) } }
@@ -280,12 +377,13 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         recompute()
         scope.launch {
             try {
-                replace(id, drive.patchProps(id, values))
+                replace(id, s.patch(p, values))
                 recompute()
+                scheduleFlush()
             } catch (e: Exception) {
                 replace(id, before)
                 recompute()
-                toast("Não salvou no Drive: ${e.message}")
+                toast("Não salvou: ${e.message}")
             }
         }
     }
@@ -305,20 +403,21 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         setProps(id, mapOf(Photo.K_COLOR to if (cur == c || c.isEmpty()) null else c))
     }
 
-    // ---------- Análise ----------
+    // ---------- Trabalhos longos ----------
 
     fun cancelWork() {
         job?.cancel()
     }
 
-    private fun runWork(label: String, block: suspend () -> Unit) {
+    private fun runWork(label: String, block: suspend (PhotoSource) -> Unit) {
         if (working) return
+        val s = source ?: return
         job = scope.launch {
             working = true
             progress = 0f
             progressText = label
             try {
-                block()
+                block(s)
             } catch (e: CancellationException) {
                 toast("Interrompido.")
             } catch (e: Exception) {
@@ -326,11 +425,12 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
             } finally {
                 working = false
                 recompute()
+                if (s.isLocal) runCatching { withContext(kotlinx.coroutines.NonCancellable) { s.flush() } }
             }
         }
     }
 
-    fun analyze(all: Boolean) = runWork("Analisando…") {
+    fun analyze(all: Boolean) = runWork("Analisando…") { s ->
         val todo = photos.filter { all || !it.analyzed }
         if (todo.isEmpty()) {
             toast("Todas as fotos já foram analisadas.")
@@ -338,19 +438,19 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         }
         var done = 0
         var failed = 0
-        val sem = Semaphore(3)
-        kotlinx.coroutines.coroutineScope {
+        val sem = Semaphore(if (s.isLocal) 2 else 3)
+        coroutineScope {
             todo.map { p ->
                 launch {
                     sem.withPermit {
                         try {
-                            val bmp = analysisBitmap(p)
+                            val bmp = s.analysisBitmap(p)
                             if (bmp == null) {
                                 failed++
                             } else {
                                 val res = analyzer.analyze(bmp)
                                 bmp.recycle()
-                                replace(p.id, drive.patchProps(p.id, res))
+                                replace(p.id, s.patch(p, res))
                             }
                         } catch (e: CancellationException) {
                             throw e
@@ -365,40 +465,25 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
                 }
             }.joinAll()
         }
-        recompute()
         toast(if (failed == 0) "Análise concluída." else "Análise concluída. $failed sem prévia disponível.")
     }
 
-    private suspend fun analysisBitmap(p: Photo): Bitmap? = withContext(Dispatchers.IO) {
-        val bytes = when {
-            p.thumb(1024) != null -> drive.fetchThumb(p.thumb(1024)!!)
-            p.decodable && p.size in 1..60_000_000 -> drive.downloadMedia(p.id)
-            else -> return@withContext null
-        }
-        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
-        var sample = 1
-        while (max(o.outWidth, o.outHeight) / (sample * 2) >= 1024) sample *= 2
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
-    }
-
-    /** Sugestão automática: só nas fotos ainda sem marcação. */
     fun suggestionCount(): Pair<Int, Int> {
         val free = photos.filter { it.analyzed && it.flag.isEmpty() }
         val rej = free.count { insights.suggestReject(it) }
         return (free.size - rej) to rej
     }
 
-    fun applySuggestion() = runWork("Aplicando sugestão…") {
+    fun applySuggestion() = runWork("Aplicando sugestão…") { s ->
         val free = photos.filter { it.analyzed && it.flag.isEmpty() }
         var done = 0
         val sem = Semaphore(4)
-        kotlinx.coroutines.coroutineScope {
+        coroutineScope {
             free.map { p ->
                 launch {
                     sem.withPermit {
                         val f = if (insights.suggestReject(p)) Photo.FLAG_REJECT else Photo.FLAG_PICK
-                        runCatching { replace(p.id, drive.patchProps(p.id, mapOf(Photo.K_FLAG to f))) }
+                        runCatching { replace(p.id, s.patch(p, mapOf(Photo.K_FLAG to f))) }
                         done++
                         progress = done.toFloat() / free.size
                         progressText = "Marcando $done de ${free.size}"
@@ -409,7 +494,7 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         toast("Sugestão aplicada em ${free.size} fotos.")
     }
 
-    // ---------- Separar no Drive ----------
+    // ---------- Separar ----------
 
     fun separateCount(what: SeparateWhat) = photos.count { matches(it, what) }
 
@@ -419,26 +504,25 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         SeparateWhat.STARRED -> p.rating > 0
     }
 
-    fun separate(what: SeparateWhat, move: Boolean, folderName: String) = runWork("Separando…") {
-        val f = folder ?: return@runWork
+    fun separate(what: SeparateWhat, move: Boolean, folderName: String) = runWork("Separando…") { s ->
         val list = photos.filter { matches(it, what) }
         if (list.isEmpty()) {
             toast("Nenhuma foto para separar.")
             return@runWork
         }
-        val target = drive.ensureFolder(f.id, folderName.trim().ifEmpty { "Charis Selecionadas" })
+        val name = folderName.trim().ifEmpty { "Charis Selecionadas" }
+        val target = s.prepareTarget(name)
         var done = 0
         var failed = 0
-        val sem = Semaphore(4)
+        val sem = Semaphore(if (s.isLocal) 2 else 4)
         val moved = java.util.Collections.synchronizedSet(HashSet<String>())
-        kotlinx.coroutines.coroutineScope {
+        coroutineScope {
             list.map { p ->
                 launch {
                     sem.withPermit {
                         try {
-                            if (move) {
-                                drive.move(p.id, f.id, target); moved += p.id
-                            } else drive.copy(p.id, target, p.name)
+                            s.transfer(p, target, name, move)
+                            if (move) moved += p.id
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
@@ -453,32 +537,18 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
         }
         if (moved.isNotEmpty()) photos = photos.filter { it.id !in moved }
         val verb = if (move) "movidas" else "copiadas"
-        toast("${list.size - failed} fotos $verb para \"$folderName\"." + if (failed > 0) " $failed falharam." else "")
+        toast("${list.size - failed} fotos $verb para \"$name\"." + if (failed > 0) " $failed falharam." else "")
     }
 
     // ---------- Edição ----------
 
-    class Loaded(val original: ByteArray?, val full: Bitmap, val fromPreview: Boolean)
-
-    suspend fun loadForEdit(p: Photo): Loaded = withContext(Dispatchers.IO) {
-        if (p.decodable) {
-            val bytes = drive.downloadMedia(p.id)
-            Loaded(bytes, Editor.decode(bytes), false)
-        } else {
-            val link = p.thumb(3000) ?: throw IllegalStateException("Este arquivo não tem prévia no Drive para editar.")
-            val bytes = drive.fetchThumb(link)
-            Loaded(null, Editor.decode(bytes), true)
-        }
-    }
+    suspend fun loadForEdit(p: Photo): Loaded = source?.loadForEdit(p) ?: throw IllegalStateException("Pasta fechada")
 
     suspend fun saveEdit(p: Photo, loaded: Loaded, adj: Adjust): String = withContext(Dispatchers.IO) {
-        val f = folder ?: throw IllegalStateException("Pasta não encontrada")
+        val s = source ?: throw IllegalStateException("Pasta fechada")
         val out = Editor.apply(loaded.full, adj)
         val jpeg = Editor.encodeJpeg(out, loaded.original, ctx.cacheDir)
         out.recycle()
-        val target = drive.ensureFolder(f.id, "Charis Editadas")
-        val name = p.name.substringBeforeLast('.') + "_charis.jpg"
-        drive.uploadJpeg(target, name, jpeg)
-        name
+        s.saveEdited(p, jpeg)
     }
 }

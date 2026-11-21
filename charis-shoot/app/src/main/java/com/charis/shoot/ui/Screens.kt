@@ -115,7 +115,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.charis.shoot.CharisApp
 import com.charis.shoot.Filter
 import com.charis.shoot.Screen
@@ -124,6 +123,10 @@ import com.charis.shoot.culling.Sensitivity
 import com.charis.shoot.drive.Photo
 import com.charis.shoot.edit.Adjust
 import com.charis.shoot.edit.Editor
+import com.charis.shoot.source.Loaded
+import com.charis.shoot.RecentFolder
+import androidx.compose.material.icons.rounded.SdStorage
+import androidx.compose.material.icons.rounded.Usb
 import kotlinx.coroutines.launch
 
 val LABELS = listOf(
@@ -189,7 +192,7 @@ private fun Wordmark(size: Int = 40) {
 @Composable
 fun LoginScreen(app: CharisApp) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             Box(
                 Modifier.size(88.dp).clip(RoundedCornerShape(28.dp)).background(Charis.Grafite)
                     .border(1.dp, Charis.SalviaEscuro, RoundedCornerShape(28.dp)),
@@ -217,6 +220,22 @@ fun LoginScreen(app: CharisApp) {
                 if (app.loggingIn) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 else Text("Entrar com Google", fontWeight = FontWeight.SemiBold)
             }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { app.pickFolder() },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Icon(Icons.Rounded.SdStorage, null); Spacer(Modifier.width(8.dp))
+                Text("Pasta do celular, HD ou cartão")
+            }
+            Text(
+                "Funciona sem internet. Escolha a pasta no seletor do Android: memória, cartão SD, " +
+                    "HD ou pendrive no USB e leitor de cartão da câmera.",
+                style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+            )
+            RecentLocal(app)
             app.loginError?.let { err ->
                 Spacer(Modifier.height(20.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
@@ -278,8 +297,13 @@ fun FoldersScreen(app: CharisApp) {
         Column(Modifier.padding(pad).fillMaxSize()) {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !app.shared, onClick = { app.openRoot(false) }, label = { Text("Meu Drive") })
-                FilterChip(selected = app.shared, onClick = { app.openRoot(true) }, label = { Text("Compartilhados comigo") })
+                FilterChip(selected = app.shared, onClick = { app.openRoot(true) }, label = { Text("Compartilhados") })
+                FilterChip(
+                    selected = false, onClick = { app.pickFolder() }, label = { Text("Celular / HD") },
+                    leadingIcon = { Icon(Icons.Rounded.Usb, null, Modifier.size(16.dp)) },
+                )
             }
+            if (app.recents.isNotEmpty()) Box(Modifier.padding(horizontal = 16.dp)) { RecentLocal(app) }
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -346,28 +370,23 @@ fun FoldersScreen(app: CharisApp) {
 @Composable
 private fun DriveImage(app: CharisApp, p: Photo, size: Int, modifier: Modifier, scale: ContentScale) {
     val ctx = LocalContext.current
-    val url = p.thumb(size)
-    if (url == null) {
+    val src = app.source
+    val req = remember(p.id, size, app.token, src) { src?.imageRequest(ctx, p, size, app.token) }
+    if (req == null) {
         Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
             Text(p.name.substringAfterLast('.').uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
-    val req = remember(url, app.token) {
-        ImageRequest.Builder(ctx)
-            .data(url)
-            .apply { app.token?.let { addHeader("Authorization", "Bearer $it") } }
-            .memoryCacheKey("${p.id}_$size")
-            .diskCacheKey("${p.id}_$size")
-            .crossfade(true)
-            .build()
-    }
-    AsyncImage(model = req, contentDescription = p.name, modifier = modifier, contentScale = scale)
+    AsyncImage(
+        model = req, contentDescription = p.name, imageLoader = app.imageLoader,
+        modifier = modifier, contentScale = scale,
+    )
 }
 
 @Composable
 fun GridScreen(app: CharisApp) {
-    BackHandler { app.screen = Screen.Folders }
+    BackHandler { app.closeGrid() }
     var menu by remember { mutableStateOf(false) }
     var suggest by remember { mutableStateOf(false) }
     var separate by remember { mutableStateOf(false) }
@@ -380,10 +399,10 @@ fun GridScreen(app: CharisApp) {
         topBar = {
             TopAppBar(
                 colors = charisBarColors(),
-                navigationIcon = { BackButton { app.screen = Screen.Folders } },
+                navigationIcon = { BackButton { app.closeGrid() } },
                 title = {
                     Column {
-                        Text(app.folder?.name ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(app.source?.title ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
                             "${app.photos.size} fotos · $picks escolhidas · $rejects rejeitadas",
                             style = MaterialTheme.typography.bodySmall,
@@ -446,7 +465,7 @@ fun GridScreen(app: CharisApp) {
                 item {
                     FilledTonalButton(onClick = { separate = true }, enabled = !app.working && app.photos.isNotEmpty()) {
                         Icon(Icons.Rounded.DriveFileMove, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                        Text("Separar no Drive")
+                        Text(if (app.source?.isLocal == true) "Separar em subpasta" else "Separar no Drive")
                     }
                 }
             }
@@ -543,7 +562,7 @@ private fun SeparateDialog(app: CharisApp, onClose: () -> Unit) {
     var name by remember { mutableStateOf("Charis Selecionadas") }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Separar no Drive") },
+        title = { Text(if (app.source?.isLocal == true) "Separar em subpasta" else "Separar no Drive") },
         text = {
             Column {
                 Text("Quais fotos", style = MaterialTheme.typography.labelLarge)
@@ -756,7 +775,7 @@ fun EditorScreen(app: CharisApp, s: Screen.Editor) {
     BackHandler { app.screen = s.back }
     val p = app.byId(s.photoId)
     if (p == null) { app.screen = s.back; return }
-    var loaded by remember { mutableStateOf<CharisApp.Loaded?>(null) }
+    var loaded by remember { mutableStateOf<Loaded?>(null) }
     var preview by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
@@ -828,11 +847,11 @@ fun EditorScreen(app: CharisApp, s: Screen.Editor) {
                     }
                 }
             }
-            if (loaded?.fromPreview == true) Text(
-                "Arquivo RAW: a edição usa a prévia do Drive (até 3000 px) e salva um JPEG.",
+            loaded?.note?.let { note -> Text(
+                note,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            ) }
             Column(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)
@@ -856,5 +875,33 @@ private fun AdjustSlider(label: String, value: Float, range: ClosedFloatingPoint
             "%+.1f".format(value), modifier = Modifier.width(44.dp).clickable { onChange(0f) },
             textAlign = TextAlign.End, style = MaterialTheme.typography.labelMedium,
         )
+    }
+}
+
+@Composable
+private fun RecentLocal(app: CharisApp) {
+    val list = app.recents
+    if (list.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Text(
+            "Pastas do aparelho", style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        list.forEach { r -> RecentRow(app, r) }
+    }
+}
+
+@Composable
+private fun RecentRow(app: CharisApp, r: RecentFolder) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { app.openRecent(r) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.SdStorage, null, tint = Charis.Salvia, modifier = Modifier.padding(end = 10.dp))
+        Text(r.name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        IconButton(onClick = { app.forgetRecent(r) }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Rounded.Close, "Esquecer pasta", Modifier.size(16.dp))
+        }
     }
 }
