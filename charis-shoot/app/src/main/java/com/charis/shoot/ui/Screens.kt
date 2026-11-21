@@ -127,6 +127,7 @@ import com.charis.shoot.source.Loaded
 import com.charis.shoot.RecentFolder
 import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.SystemUpdate
 import kotlinx.coroutines.launch
 
 val LABELS = listOf(
@@ -149,6 +150,48 @@ fun Root(app: CharisApp) {
             is Screen.Viewer -> ViewerScreen(app, s)
             is Screen.Editor -> EditorScreen(app, s)
         }
+    }
+    if (app.showUpdate) UpdateDialog(app)
+}
+
+@Composable
+private fun UpdateDialog(app: CharisApp) {
+    val info = app.update ?: return
+    val prog = app.updateProgress
+    AlertDialog(
+        onDismissRequest = { if (prog == null) app.showUpdate = false },
+        title = { Text("Nova versão ${info.name}") },
+        text = {
+            Column {
+                Text("Você tem a ${app.versionName}.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (info.notes.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(info.notes)
+                }
+                if (prog != null) {
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(progress = { prog }, modifier = Modifier.fillMaxWidth())
+                    Text("Baixando ${(prog * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { app.installUpdate() }, enabled = prog == null) { Text("Atualizar") }
+        },
+        dismissButton = {
+            TextButton(onClick = { app.showUpdate = false }, enabled = prog == null) { Text("Depois") }
+        },
+    )
+}
+
+@Composable
+private fun VersionLine(app: CharisApp) {
+    TextButton(onClick = { app.checkUpdate(manual = true) }, enabled = !app.checkingUpdate) {
+        Text(
+            if (app.checkingUpdate) "Procurando atualização…" else "Versão ${app.versionName} · procurar atualização",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -251,6 +294,7 @@ fun LoginScreen(app: CharisApp) {
             }
             Spacer(Modifier.height(16.dp))
             ThemeToggle(app)
+            VersionLine(app)
         }
     }
 }
@@ -282,6 +326,11 @@ fun FoldersScreen(app: CharisApp) {
                             text = { Text("Atualizar") },
                             leadingIcon = { Icon(Icons.Rounded.Refresh, null) },
                             onClick = { menu = false; app.loadFolders() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Procurar atualização") },
+                            leadingIcon = { Icon(Icons.Rounded.SystemUpdate, null) },
+                            onClick = { menu = false; app.checkUpdate(manual = true) },
                         )
                         DropdownMenuItem(
                             text = { Text("Sair da conta") },

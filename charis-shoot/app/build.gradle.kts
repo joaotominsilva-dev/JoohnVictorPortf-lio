@@ -12,8 +12,10 @@ android {
         applicationId = "com.charis.shoot"
         minSdk = 28
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        // O GitHub Actions passa o número da compilação: cada APK publicado tem versão maior.
+        val build = (System.getenv("CHARIS_BUILD") ?: "0").toInt()
+        versionCode = 10 + build
+        versionName = "1.2.$build"
     }
 
     signingConfigs {

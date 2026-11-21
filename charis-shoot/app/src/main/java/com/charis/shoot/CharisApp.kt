@@ -134,6 +134,60 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
     private var job: Job? = null
     private var flushJob: Job? = null
 
+    // ---------- Atualização ----------
+
+    val versionName: String = Updater.installedName(ctx)
+    var update by mutableStateOf<Updater.Info?>(null)
+        private set
+    var showUpdate by mutableStateOf(false)
+    var updateProgress by mutableStateOf<Float?>(null)
+        private set
+    var checkingUpdate by mutableStateOf(false)
+        private set
+
+    fun checkUpdate(manual: Boolean) {
+        if (checkingUpdate) return
+        if (!manual && System.currentTimeMillis() - prefs.getLong("lastUpdateCheck", 0) < 20 * 3600_000L) return
+        checkingUpdate = true
+        scope.launch {
+            try {
+                val info = Updater.latest(drive.http)
+                prefs.edit().putLong("lastUpdateCheck", System.currentTimeMillis()).apply()
+                if (info != null && info.code > Updater.installedCode(ctx)) {
+                    update = info
+                    showUpdate = true
+                } else if (manual) {
+                    toast(if (info == null) "Não consegui verificar agora. Confira a internet." else "Você já tem a versão mais nova ($versionName).")
+                }
+            } finally {
+                checkingUpdate = false
+            }
+        }
+    }
+
+    fun installUpdate() {
+        val info = update ?: return
+        if (!Updater.canInstall(ctx)) {
+            toast("Libere \"Instalar apps desconhecidos\" para o Charis Shoot e toque em Atualizar de novo.")
+            Updater.openInstallPermission(ctx)
+            return
+        }
+        if (updateProgress != null) return
+        updateProgress = 0f
+        scope.launch {
+            try {
+                flushNow()
+                val apk = Updater.download(ctx, drive.http, info) { p -> scope.launch { updateProgress = p } }
+                Updater.install(ctx, apk)
+                showUpdate = false
+            } catch (e: Exception) {
+                toast("Atualização falhou: ${e.message}")
+            } finally {
+                updateProgress = null
+            }
+        }
+    }
+
     fun toast(msg: String) {
         scope.launch { snack.showSnackbar(msg) }
     }
@@ -146,6 +200,7 @@ class CharisApp(val ctx: Context, private val auth: AuthManager) {
     // ---------- Login ----------
 
     fun start() {
+        checkUpdate(manual = false)
         if (prefs.getBoolean("loggedOut", false)) return
         scope.launch {
             val t = runCatching { auth.getToken(interactive = false) }.getOrNull() ?: return@launch

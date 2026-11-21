@@ -7,6 +7,10 @@ on:
       - ".github/workflows/charis-shoot-apk.yml"
   workflow_dispatch:
 
+concurrency:
+  group: charis-shoot-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,6 +27,8 @@ jobs:
         with:
           gradle-version: "8.11.1"
       - name: Compilar APK
+        env:
+          CHARIS_BUILD: ${{ github.run_number }}
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: Renomear
         run: cp app/build/outputs/apk/release/app-release.apk CharisShoot.apk
@@ -87,8 +93,14 @@ jobs:
           mkdir -p charis-shoot/apk charis-shoot/docs
           cp novo-apk/CharisShoot.apk charis-shoot/apk/CharisShoot.apk
           cp teste-emulador/tela.png charis-shoot/docs/tela-inicial.png || true
+          # versao.json: o app lê este arquivo para oferecer a atualização
+          build=${{ github.run_number }}
+          notas=$(git log -1 --format=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' | sed '/^$/d' | head -12)
+          python3 -c 'import json,sys; print(json.dumps({"versionCode": 10+int(sys.argv[1]), "versionName": "1.2."+sys.argv[1], "apk": "CharisShoot.apk", "notas": sys.argv[2]}, ensure_ascii=False, indent=1))' "$build" "$notas" > charis-shoot/apk/versao.json
+          cat charis-shoot/apk/versao.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add charis-shoot/apk charis-shoot/docs
-          git commit -m "Charis Shoot: APK testado no emulador" || exit 0
+          git commit -m "Charis Shoot 1.2.${{ github.run_number }}: APK testado no emulador" || exit 0
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
