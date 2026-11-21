@@ -249,7 +249,7 @@ fun LoginScreen(app: CharisApp) {
             Wordmark()
             Spacer(Modifier.height(8.dp))
             Text(
-                "Culling das suas fotos direto do Google Drive. Nada fica no celular.",
+                "Culling das suas fotos no Google Drive ou direto do celular, HD e cartão da câmera.",
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
