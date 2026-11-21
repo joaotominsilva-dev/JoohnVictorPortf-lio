@@ -65,3 +65,30 @@ jobs:
           path: |
             tela.png
             crash.txt
+
+  salvar-apk:
+    needs: [build, smoke-test]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: CharisShoot-apk
+          path: novo-apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: teste-emulador
+          path: teste-emulador
+      - name: Commit do APK e da captura
+        run: |
+          mkdir -p charis-shoot/apk charis-shoot/docs
+          cp novo-apk/CharisShoot.apk charis-shoot/apk/CharisShoot.apk
+          cp teste-emulador/tela.png charis-shoot/docs/tela-inicial.png || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add charis-shoot/apk charis-shoot/docs
+          git commit -m "Charis Shoot: APK testado no emulador" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}"
