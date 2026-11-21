@@ -1,6 +1,6 @@
 {
- "versionCode": 15,
- "versionName": "1.2.5",
+ "versionCode": 16,
+ "versionName": "1.2.6",
  "apk": "CharisShoot.apk",
- "notas": "Charis Shoot 1.2: atualização pelo próprio app\n- Procura versão nova ao abrir (uma vez por dia) e no menu Procurar atualização\n- Baixa o APK do GitHub e abre o instalador do Android por cima da versão atual\n- Versão automática a cada compilação, com as novidades em apk/versao.json"
+ "notas": "Charis Shoot: texto da tela inicial cita Drive e pastas do aparelho"
 }
